@@ -1529,7 +1529,7 @@ export default function Home() {
             <label>Full Name *</label>
             <input
               type="text"
-              value={formData.name || patient?.name || ""}
+              value={(formData.name as string) || patient?.name || ""}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
             />
@@ -1669,7 +1669,7 @@ export default function Home() {
           <div className="form-group">
             <label>Status *</label>
             <select
-              value={formData.status || patient?.status || "admitted"}
+              value={(formData.status as string) || patient?.status || "admitted"}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               required
             >
@@ -1722,7 +1722,7 @@ export default function Home() {
           <label>Subject *</label>
           <input
             type="text"
-            value={formData.subject || ""}
+            value={(formData.subject as string) || ""}
             onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
             required
           />
@@ -1731,7 +1731,7 @@ export default function Home() {
           <label>Description *</label>
           <textarea
             className="response-textarea"
-            value={formData.description || ""}
+            value={(formData.description as string) || ""}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             rows={4}
             required
@@ -1741,7 +1741,7 @@ export default function Home() {
         <div className="form-group">
           <label>Priority *</label>
           <select
-            value={formData.priority || "medium"}
+            value={(formData.priority as string) || "medium"}
             onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
             required
           >
@@ -2278,12 +2278,11 @@ export default function Home() {
               Sign In
             </button>
             <div className="demo-credentials">
-              <p>
-                <strong>Demo Credentials:</strong>
-              </p>
+              <p><strong>Demo Credentials:</strong></p>
               <p>Super Admin: admin@rehab.gov.in</p>
-              <p>Centre Admin: centrea@example.com</p>
-              <p>(Any password)</p>
+              <p>password: admin123</p>
+              <p>Centre Admin: anil.deshmukh@rehab.gov.in</p>
+              <p>password: admin123</p>
             </div>
             <div style={{ textAlign: "center", marginTop: "20px", paddingTop: "20px", borderTop: "1px solid var(--gray-200)" }}>
               <p style={{ color: "var(--gray-600)", marginBottom: "10px" }}>New Centre Admin?</p>
@@ -2307,7 +2306,12 @@ export default function Home() {
 
   // Helper function to open add query modal
   const openAddQueryModal = () => {
-    setFormData(currentUser.role === "centre_admin" ? { centreId: currentUser.centreId } : {})
+    // Reset formData first - ensure it's completely empty for new query
+    const initialData: Record<string, string | number | null | undefined> = {}
+    if (currentUser?.role === "centre_admin" && currentUser.centreId) {
+      initialData.centreId = currentUser.centreId
+    }
+    setFormData(initialData)
     openModal("Raise Query", <QueryForm />)
   }
 
@@ -2770,7 +2774,12 @@ export default function Home() {
             <button
               className="btn btn-primary"
               onClick={() => {
-                setFormData(currentUser.role === "centre_admin" ? { centreId: currentUser.centreId } : {})
+                // Reset formData first - ensure it's completely empty for new patient
+                const initialData: Record<string, string | number | null | undefined> = {}
+                if (currentUser?.role === "centre_admin" && currentUser.centreId) {
+                  initialData.centreId = currentUser.centreId
+                }
+                setFormData(initialData)
                 openModal("Add New Patient", <PatientForm />)
               }}
             >
