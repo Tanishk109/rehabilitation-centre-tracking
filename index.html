@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NRCMS - National Rehabilitation Centre Management System</title>
+    <meta name="description" content="Government of India - National Rehabilitation Centre Management System for tracking rehabilitation centres across India">
+    <meta name="theme-color" content="#FF9933">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Login Page -->
+        <div id="login-page" class="page">
+            <div class="login-container">
+                <div class="login-header">
+                    <div class="emblem">
+                        <div class="ashoka-chakra"></div>
+                    </div>
+                    <h1>NRCMS</h1>
+                    <p>National Rehabilitation Centre Management System</p>
+                    <span class="govt-text">Government of India</span>
+                </div>
+                <form id="login-form" class="login-form">
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" placeholder="Enter your email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" placeholder="Enter your password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+                    <div class="demo-credentials">
+                        <p><strong>Demo Credentials:</strong></p>
+                        <p>Super Admin: admin@rehab.gov.in</p>
+                        <p>Centre Admin: anil.deshmukh@rehab.gov.in</p>
+                        <p>(Any password)</p>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Main Application -->
+        <div id="main-app" class="hidden">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <div class="logo">
+                        <div class="ashoka-chakra small"></div>
+                        <span>NRCMS</span>
+                    </div>
+                    <nav class="nav">
+                        <a href="#" class="nav-link active" data-page="dashboard">Dashboard</a>
+                        <a href="#" class="nav-link" data-page="centres">Centres</a>
+                        <a href="#" class="nav-link" data-page="patients">Patients</a>
+                        <a href="#" class="nav-link" data-page="support">Support</a>
+                        <a href="#" class="nav-link" data-page="orders">Orders</a>
+                    </nav>
+                </div>
+                <div class="header-right">
+                    <span id="user-info"></span>
+                    <button id="logout-btn" class="btn btn-outline">Logout</button>
+                </div>
+            </header>
+
+            <!-- Dashboard Page -->
+            <div id="dashboard-page" class="page-content">
+                <div class="page-header">
+                    <h1>Dashboard</h1>
+                    <p>Overview of rehabilitation centres across India</p>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card saffron">
+                        <div class="stat-icon">🏥</div>
+                        <div class="stat-info">
+                            <h3 id="total-centres">0</h3>
+                            <p>Total Centres</p>
+                        </div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-info">
+                            <h3 id="total-patients">0</h3>
+                            <p>Total Patients</p>
+                        </div>
+                    </div>
+                    <div class="stat-card blue">
+                        <div class="stat-icon">📍</div>
+                        <div class="stat-info">
+                            <h3 id="total-states">0</h3>
+                            <p>States Covered</p>
+                        </div>
+                    </div>
+                    <div class="stat-card purple">
+                        <div class="stat-icon">📋</div>
+                        <div class="stat-info">
+                            <h3 id="pending-queries">0</h3>
+                            <p>Pending Queries</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <h3>Centres by State</h3>
+                        <div id="centres-by-state" class="chart-container"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Patient Status</h3>
+                        <div id="patient-status" class="chart-container"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Recent Activities</h3>
+                        <div id="recent-activities" class="activities-list"></div>
+                    </div>
+                    <div class="card">
+                        <h3>Addiction Types</h3>
+                        <div id="addiction-types" class="chart-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Centres Page -->
+            <div id="centres-page" class="page-content hidden">
+                <div class="page-header">
+                    <h1>Rehabilitation Centres</h1>
+                    <button id="add-centre-btn" class="btn btn-primary">+ Add Centre</button>
+                </div>
+                <div class="filters">
+                    <input type="text" id="centre-search" placeholder="Search centres..." class="search-input">
+                    <select id="state-filter" class="select-input">
+                        <option value="">All States</option>
+                    </select>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Centre ID</th>
+                                <th>Name</th>
+                                <th>State</th>
+                                <th>City</th>
+                                <th>Patients</th>
+                                <th>Administrator</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="centres-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Patients Page -->
+            <div id="patients-page" class="page-content hidden">
+                <div class="page-header">
+                    <h1>Patient Records</h1>
+                    <button id="add-patient-btn" class="btn btn-primary">+ Add Patient</button>
+                </div>
+                <div class="filters">
+                    <input type="text" id="patient-search" placeholder="Search patients..." class="search-input">
+                    <select id="centre-filter" class="select-input">
+                        <option value="">All Centres</option>
+                    </select>
+                    <select id="status-filter" class="select-input">
+                        <option value="">All Status</option>
+                        <option value="admitted">Admitted</option>
+                        <option value="under_treatment">Under Treatment</option>
+                        <option value="recovering">Recovering</option>
+                        <option value="discharged">Discharged</option>
+                    </select>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Patient ID</th>
+                                <th>Name</th>
+                                <th>Age</th>
+                                <th>Centre</th>
+                                <th>Addiction Type</th>
+                                <th>Status</th>
+                                <th>Admitted On</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="patients-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Support Page -->
+            <div id="support-page" class="page-content hidden">
+                <div class="page-header">
+                    <h1>Support & Queries</h1>
+                    <button id="raise-query-btn" class="btn btn-primary">+ Raise Query</button>
+                </div>
+                <div class="filters">
+                    <select id="query-status-filter" class="select-input">
+                        <option value="">All Status</option>
+                        <option value="open">Open</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                    <select id="query-priority-filter" class="select-input">
+                        <option value="">All Priority</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="urgent">Urgent</option>
+                    </select>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Query ID</th>
+                                <th>Subject</th>
+                                <th>Centre</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="queries-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Orders Page -->
+            <div id="orders-page" class="page-content hidden">
+                <div class="page-header">
+                    <h1>Orders & Instructions</h1>
+                    <button id="create-order-btn" class="btn btn-primary super-admin-only">+ Create Order</button>
+                </div>
+                <div class="filters">
+                    <select id="order-status-filter" class="select-input">
+                        <option value="">All Status</option>
+                        <option value="issued">Issued</option>
+                        <option value="acknowledged">Acknowledged</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                    <select id="order-priority-filter" class="select-input">
+                        <option value="">All Priority</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="critical">Critical</option>
+                    </select>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Subject</th>
+                                <th>Target</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th>Deadline</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modals -->
+        <div id="modal-overlay" class="modal-overlay hidden">
+            <div id="modal-container" class="modal-container">
+                <div class="modal-header">
+                    <h2 id="modal-title"></h2>
+                    <button class="modal-close" onclick="closeModal()">&times;</button>
+                </div>
+                <div id="modal-content" class="modal-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,2421 @@
+"use client"
+
+import type React from "react"
+
+import { useState, useEffect } from "react"
+
+// Types
+interface User {
+  id: string
+  name: string
+  email: string
+  role: "super_admin" | "centre_admin"
+  centreId: string | null
+}
+
+interface Centre {
+  id: string
+  name: string
+  state: string
+  city: string
+  address: string
+  phone: string
+  email: string
+  capacity: number
+  administrator: string
+  adminEmail: string
+  status: "active" | "inactive"
+  createdAt: string
+}
+
+interface Patient {
+  id: string
+  centreId: string
+  name: string
+  dob: string
+  age: number
+  gender: string
+  phone: string
+  email: string
+  address: string
+  aadharNumber: string
+  familyContactName: string
+  familyContactPhone: string
+  addictionType: string
+  admissionDate: string
+  status: "admitted" | "under_treatment" | "recovering" | "discharged"
+  medications: Medication[]
+}
+
+interface Medication {
+  id: string
+  name: string
+  dosage: string
+  frequency: string
+  prescribedBy: string
+  startDate: string
+}
+
+interface Query {
+  id: string
+  centreId: string
+  centreName: string
+  subject: string
+  description: string
+  priority: "low" | "medium" | "high" | "urgent"
+  status: "open" | "in_progress" | "resolved" | "closed"
+  createdBy: string
+  createdAt: string
+  responses: QueryResponse[]
+}
+
+interface QueryResponse {
+  id: string
+  message: string
+  respondedBy: string
+  respondedAt: string
+  isAdmin: boolean
+}
+
+interface Order {
+  id: string
+  subject: string
+  instruction: string
+  targetCentreId: string | null
+  targetCentreName: string
+  priority: "low" | "medium" | "high" | "critical"
+  status: "issued" | "acknowledged" | "in_progress" | "completed"
+  deadline: string
+  issuedBy: string
+  issuedAt: string
+  acknowledgements: Acknowledgement[]
+}
+
+interface Acknowledgement {
+  centreId: string
+  acknowledgedBy: string
+  acknowledgedAt: string
+}
+
+// Constants
+const ADMIN_USERS: User[] = [
+  { id: "admin1", name: "Dr. Rajesh Kumar", email: "admin@rehab.gov.in", role: "super_admin", centreId: null },
+  { id: "admin2", name: "Mr. Anil Deshmukh", email: "centrea@example.com", role: "centre_admin", centreId: "C001" },
+  { id: "admin3", name: "Dr. Priya Sharma", email: "centreb@example.com", role: "centre_admin", centreId: "C002" },
+]
+
+const INDIAN_STATES = [
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Delhi",
+]
+
+const ADDICTION_TYPES = [
+  "Alcohol",
+  "Cannabis/Marijuana",
+  "Opioids (Heroin, Morphine)",
+  "Cocaine",
+  "Methamphetamine",
+  "Prescription Drugs",
+  "Tobacco/Nicotine",
+  "Benzodiazepines",
+  "Inhalants",
+  "Hallucinogens",
+  "Multiple Substances",
+  "Other",
+]
+
+// Initial Data
+const initialCentres: Centre[] = [
+  {
+    id: "C001",
+    name: "Mumbai Central Rehabilitation Centre",
+    state: "Maharashtra",
+    city: "Mumbai",
+    address: "123, Bandra West, Mumbai - 400050",
+    phone: "022-12345678",
+    email: "mumbai@rehab.gov.in",
+    capacity: 150,
+    administrator: "Mr. Anil Deshmukh",
+    adminEmail: "anil@rehab.gov.in",
+    status: "active",
+    createdAt: "2023-01-15",
+  },
+  {
+    id: "C002",
+    name: "Delhi AIIMS De-addiction Centre",
+    state: "Delhi",
+    city: "New Delhi",
+    address: "AIIMS Campus, Ansari Nagar, New Delhi",
+    phone: "011-26588500",
+    email: "delhi@rehab.gov.in",
+    capacity: 200,
+    administrator: "Dr. Priya Sharma",
+    adminEmail: "priya@rehab.gov.in",
+    status: "active",
+    createdAt: "2022-06-01",
+  },
+  {
+    id: "C003",
+    name: "Bengaluru Hope Foundation Centre",
+    state: "Karnataka",
+    city: "Bengaluru",
+    address: "45, Koramangala, Bengaluru",
+    phone: "080-23456789",
+    email: "bengaluru@rehab.gov.in",
+    capacity: 100,
+    administrator: "Dr. Venkatesh Iyer",
+    adminEmail: "venkatesh@rehab.gov.in",
+    status: "active",
+    createdAt: "2023-03-20",
+  },
+  {
+    id: "C004",
+    name: "Chennai Recovery Centre",
+    state: "Tamil Nadu",
+    city: "Chennai",
+    address: "78, T. Nagar, Chennai",
+    phone: "044-34567890",
+    email: "chennai@rehab.gov.in",
+    capacity: 120,
+    administrator: "Dr. Lakshmi Narayanan",
+    adminEmail: "lakshmi@rehab.gov.in",
+    status: "active",
+    createdAt: "2023-05-10",
+  },
+]
+
+const initialPatients: Patient[] = [
+  {
+    id: "P001",
+    centreId: "C001",
+    name: "Rahul Verma",
+    dob: "1992-05-15",
+    age: 32,
+    gender: "male",
+    phone: "9876543210",
+    email: "rahul@email.com",
+    address: "45, Andheri East, Mumbai",
+    aadharNumber: "1234-5678-9012",
+    familyContactName: "Sanjay Verma (Father)",
+    familyContactPhone: "9876543211",
+    addictionType: "Alcohol",
+    admissionDate: "2024-01-10",
+    status: "under_treatment",
+    medications: [
+      {
+        id: "MED001",
+        name: "Naltrexone",
+        dosage: "50mg",
+        frequency: "Once daily",
+        prescribedBy: "Dr. Anil Sharma",
+        startDate: "2024-01-12",
+      },
+    ],
+  },
+  {
+    id: "P002",
+    centreId: "C001",
+    name: "Priya Patel",
+    dob: "1988-11-22",
+    age: 36,
+    gender: "female",
+    phone: "9876543220",
+    email: "priya@email.com",
+    address: "22, Powai, Mumbai",
+    aadharNumber: "2345-6789-0123",
+    familyContactName: "Meera Patel (Mother)",
+    familyContactPhone: "9876543221",
+    addictionType: "Prescription Drugs",
+    admissionDate: "2024-02-05",
+    status: "recovering",
+    medications: [],
+  },
+  {
+    id: "P003",
+    centreId: "C002",
+    name: "Amit Singh",
+    dob: "1995-03-08",
+    age: 29,
+    gender: "male",
+    phone: "9876543230",
+    email: "amit@email.com",
+    address: "12, Rohini, New Delhi",
+    aadharNumber: "3456-7890-1234",
+    familyContactName: "Rajesh Singh (Brother)",
+    familyContactPhone: "9876543231",
+    addictionType: "Opioids (Heroin, Morphine)",
+    admissionDate: "2024-01-20",
+    status: "under_treatment",
+    medications: [],
+  },
+  {
+    id: "P004",
+    centreId: "C003",
+    name: "Divya Reddy",
+    dob: "1990-07-14",
+    age: 34,
+    gender: "female",
+    phone: "9876543240",
+    email: "divya@email.com",
+    address: "56, Whitefield, Bengaluru",
+    aadharNumber: "4567-8901-2345",
+    familyContactName: "Krishna Reddy (Husband)",
+    familyContactPhone: "9876543241",
+    addictionType: "Alcohol",
+    admissionDate: "2023-12-15",
+    status: "discharged",
+    medications: [],
+  },
+]
+
+const initialQueries: Query[] = [
+  {
+    id: "QRY001",
+    centreId: "C001",
+    centreName: "Mumbai Central Rehabilitation Centre",
+    subject: "Request for Additional Medical Staff",
+    description: "Due to increased patient admissions, we require 2 additional psychiatrists.",
+    priority: "high",
+    status: "open",
+    createdBy: "Mr. Anil Deshmukh",
+    createdAt: "2024-03-01",
+    responses: [],
+  },
+  {
+    id: "QRY002",
+    centreId: "C002",
+    centreName: "Delhi AIIMS De-addiction Centre",
+    subject: "Equipment Maintenance Required",
+    description: "Several medical equipment need urgent maintenance.",
+    priority: "medium",
+    status: "in_progress",
+    createdBy: "Dr. Priya Sharma",
+    createdAt: "2024-02-25",
+    responses: [
+      {
+        id: "RES001",
+        message: "Maintenance team has been notified.",
+        respondedBy: "Dr. Rajesh Kumar",
+        respondedAt: "2024-02-26",
+        isAdmin: true,
+      },
+    ],
+  },
+]
+
+const initialOrders: Order[] = [
+  {
+    id: "ORD001",
+    subject: "Monthly Patient Report Submission",
+    instruction: "All centres must submit monthly patient progress reports by 5th of every month.",
+    targetCentreId: null,
+    targetCentreName: "All Centres",
+    priority: "high",
+    status: "issued",
+    deadline: "2024-03-05",
+    issuedBy: "Dr. Rajesh Kumar",
+    issuedAt: "2024-03-01",
+    acknowledgements: [],
+  },
+  {
+    id: "ORD002",
+    subject: "New Safety Protocol Implementation",
+    instruction: "Implement updated safety protocols as per Ministry guidelines.",
+    targetCentreId: "C001",
+    targetCentreName: "Mumbai Central Rehabilitation Centre",
+    priority: "critical",
+    status: "acknowledged",
+    deadline: "2024-03-10",
+    issuedBy: "Dr. Rajesh Kumar",
+    issuedAt: "2024-02-28",
+    acknowledgements: [{ centreId: "C001", acknowledgedBy: "Mr. Anil Deshmukh", acknowledgedAt: "2024-03-01" }],
+  },
+]
+
+// Helper functions
+const formatDate = (date: string) => {
+  if (!date) return "N/A"
+  return new Date(date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+}
+
+const calculateAge = (dob: string) => {
+  if (!dob) return 0
+  const today = new Date()
+  const birthDate = new Date(dob)
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const m = today.getMonth() - birthDate.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--
+  return age
+}
+
+const formatStatus = (status: string) => {
+  return status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+}
+
+export default function Home() {
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [currentPage, setCurrentPage] = useState("dashboard")
+  const [centres, setCentres] = useState<Centre[]>(initialCentres)
+  const [patients, setPatients] = useState<Patient[]>(initialPatients)
+  const [queries, setQueries] = useState<Query[]>(initialQueries)
+  const [orders, setOrders] = useState<Order[]>(initialOrders)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalTitle, setModalTitle] = useState("")
+  const [modalContent, setModalContent] = useState<React.ReactNode>(null)
+
+  // Filters
+  const [centreSearch, setCentreSearch] = useState("")
+  const [stateFilter, setStateFilter] = useState("")
+  const [patientSearch, setPatientSearch] = useState("")
+  const [centreFilter, setCentreFilter] = useState("")
+  const [statusFilter, setStatusFilter] = useState("")
+  const [queryStatusFilter, setQueryStatusFilter] = useState("")
+  const [queryPriorityFilter, setQueryPriorityFilter] = useState("")
+  const [orderStatusFilter, setOrderStatusFilter] = useState("")
+  const [orderPriorityFilter, setOrderPriorityFilter] = useState("")
+
+  // Form states
+  const [formData, setFormData] = useState<any>({})
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem("nrcms_current_user")
+    if (savedUser) {
+      setCurrentUser(JSON.parse(savedUser))
+    }
+  }, [])
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault()
+    const form = e.target as HTMLFormElement
+    const email = (form.elements.namedItem("email") as HTMLInputElement).value
+    const user = ADMIN_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase())
+    if (user) {
+      setCurrentUser(user)
+      localStorage.setItem("nrcms_current_user", JSON.stringify(user))
+    } else {
+      alert("Invalid credentials!")
+    }
+  }
+
+  const handleLogout = () => {
+    setCurrentUser(null)
+    localStorage.removeItem("nrcms_current_user")
+  }
+
+  const openModal = (title: string, content: React.ReactNode) => {
+    setModalTitle(title)
+    setModalContent(content)
+    setModalOpen(true)
+  }
+
+  const closeModal = () => {
+    setModalOpen(false)
+    setModalTitle("")
+    setModalContent(null)
+    setFormData({})
+  }
+
+  // Filter functions
+  const getFilteredCentres = () => {
+    let filtered = centres
+    if (currentUser?.role === "centre_admin") {
+      filtered = filtered.filter((c) => c.id === currentUser.centreId)
+    }
+    if (centreSearch) {
+      filtered = filtered.filter(
+        (c) =>
+          c.name.toLowerCase().includes(centreSearch.toLowerCase()) ||
+          c.id.toLowerCase().includes(centreSearch.toLowerCase()),
+      )
+    }
+    if (stateFilter) {
+      filtered = filtered.filter((c) => c.state === stateFilter)
+    }
+    return filtered
+  }
+
+  const getFilteredPatients = () => {
+    let filtered = patients
+    if (currentUser?.role === "centre_admin") {
+      filtered = filtered.filter((p) => p.centreId === currentUser.centreId)
+    }
+    if (patientSearch) {
+      filtered = filtered.filter(
+        (p) =>
+          p.name.toLowerCase().includes(patientSearch.toLowerCase()) ||
+          p.id.toLowerCase().includes(patientSearch.toLowerCase()) ||
+          p.aadharNumber.includes(patientSearch),
+      )
+    }
+    if (centreFilter) {
+      filtered = filtered.filter((p) => p.centreId === centreFilter)
+    }
+    if (statusFilter) {
+      filtered = filtered.filter((p) => p.status === statusFilter)
+    }
+    return filtered
+  }
+
+  const getFilteredQueries = () => {
+    let filtered = queries
+    if (currentUser?.role === "centre_admin") {
+      filtered = filtered.filter((q) => q.centreId === currentUser.centreId)
+    }
+    if (queryStatusFilter) {
+      filtered = filtered.filter((q) => q.status === queryStatusFilter)
+    }
+    if (queryPriorityFilter) {
+      filtered = filtered.filter((q) => q.priority === queryPriorityFilter)
+    }
+    return filtered
+  }
+
+  const getFilteredOrders = () => {
+    let filtered = orders
+    if (currentUser?.role === "centre_admin") {
+      filtered = filtered.filter((o) => o.targetCentreId === currentUser.centreId || o.targetCentreId === null)
+    }
+    if (orderStatusFilter) {
+      filtered = filtered.filter((o) => o.status === orderStatusFilter)
+    }
+    if (orderPriorityFilter) {
+      filtered = filtered.filter((o) => o.priority === orderPriorityFilter)
+    }
+    return filtered
+  }
+
+  // Stats
+  const filteredCentresForStats =
+    currentUser?.role === "centre_admin" ? centres.filter((c) => c.id === currentUser.centreId) : centres
+  const filteredPatientsForStats =
+    currentUser?.role === "centre_admin" ? patients.filter((p) => p.centreId === currentUser.centreId) : patients
+  const filteredQueriesForStats =
+    currentUser?.role === "centre_admin" ? queries.filter((q) => q.centreId === currentUser.centreId) : queries
+  const filteredOrdersForStats =
+    currentUser?.role === "centre_admin"
+      ? orders.filter((o) => o.targetCentreId === currentUser.centreId || o.targetCentreId === null)
+      : orders
+
+  const stats = {
+    totalCentres: filteredCentresForStats.length,
+    totalPatients: filteredPatientsForStats.length,
+    totalStates: [...new Set(filteredCentresForStats.map((c) => c.state))].length,
+    pendingQueries: filteredQueriesForStats.filter((q) => q.status === "open" || q.status === "in_progress").length,
+  }
+
+  const centresByState = INDIAN_STATES.map((state) => ({
+    state,
+    count: filteredCentresForStats.filter((c) => c.state === state).length,
+  })).filter((s) => s.count > 0)
+
+  const patientsByStatus = [
+    {
+      status: "admitted",
+      count: filteredPatientsForStats.filter((p) => p.status === "admitted").length,
+      color: "#3b82f6",
+    },
+    {
+      status: "under_treatment",
+      count: filteredPatientsForStats.filter((p) => p.status === "under_treatment").length,
+      color: "#f59e0b",
+    },
+    {
+      status: "recovering",
+      count: filteredPatientsForStats.filter((p) => p.status === "recovering").length,
+      color: "#10b981",
+    },
+    {
+      status: "discharged",
+      count: filteredPatientsForStats.filter((p) => p.status === "discharged").length,
+      color: "#6b7280",
+    },
+  ]
+
+  const addictionStats = ADDICTION_TYPES.map((type) => ({
+    type,
+    count: filteredPatientsForStats.filter((p) => p.addictionType === type).length,
+  })).filter((a) => a.count > 0)
+
+  // CRUD Operations
+  const saveCentre = (isEdit: boolean, centreId?: string) => {
+    // Access control: Only super admin can create/edit centres
+    if (currentUser?.role !== "super_admin") {
+      alert("Only super admin can manage centres!")
+      return
+    }
+
+    if (isEdit && centreId) {
+      setCentres(centres.map((c) => (c.id === centreId ? { ...c, ...formData } : c)))
+    } else {
+      const newCentre: Centre = {
+        ...formData,
+        id: "C" + formData.state.substring(0, 2).toUpperCase() + String(centres.length + 1).padStart(3, "0"),
+        createdAt: new Date().toISOString().split("T")[0],
+      }
+      setCentres([...centres, newCentre])
+    }
+    closeModal()
+  }
+
+  const deleteCentre = (id: string) => {
+    // Access control: Only super admin can delete centres
+    if (currentUser?.role !== "super_admin") {
+      alert("Only super admin can delete centres!")
+      return
+    }
+
+    if (confirm("Are you sure you want to delete this centre?")) {
+      setCentres(centres.filter((c) => c.id !== id))
+    }
+  }
+
+  const savePatient = (isEdit: boolean, patientId?: string) => {
+    // Access control: Centre admin can only manage patients from their centre
+    if (currentUser?.role === "centre_admin") {
+      if (isEdit && patientId) {
+        const existingPatient = patients.find((p) => p.id === patientId)
+        if (existingPatient && existingPatient.centreId !== currentUser.centreId) {
+          alert("You don't have permission to edit patients from other centres!")
+          return
+        }
+        // Ensure centre admin cannot change the centreId
+        formData.centreId = currentUser.centreId
+      } else {
+        // New patient must belong to centre admin's centre
+        formData.centreId = currentUser.centreId
+      }
+    }
+
+    const age = calculateAge(formData.dob)
+    if (isEdit && patientId) {
+      setPatients(patients.map((p) => (p.id === patientId ? { ...p, ...formData, age } : p)))
+    } else {
+      const newPatient: Patient = {
+        ...formData,
+        id: "P" + String(patients.length + 1).padStart(3, "0"),
+        age,
+        medications: [],
+      }
+      setPatients([...patients, newPatient])
+    }
+    closeModal()
+  }
+
+  const deletePatient = (id: string) => {
+    // Access control: Centre admin can only delete patients from their centre
+    if (currentUser?.role === "centre_admin") {
+      const patient = patients.find((p) => p.id === id)
+      if (patient && patient.centreId !== currentUser.centreId) {
+        alert("You don't have permission to delete patients from other centres!")
+        return
+      }
+    }
+
+    if (confirm("Are you sure you want to delete this patient?")) {
+      setPatients(patients.filter((p) => p.id !== id))
+    }
+  }
+
+  const saveQuery = () => {
+    // Access control: Centre admin can only create queries for their centre
+    if (currentUser?.role === "centre_admin") {
+      formData.centreId = currentUser.centreId
+    }
+
+    const centre = centres.find((c) => c.id === formData.centreId)
+    const newQuery: Query = {
+      ...formData,
+      id: "QRY" + String(queries.length + 1).padStart(3, "0"),
+      centreName: centre?.name || "",
+      createdBy: currentUser?.name || "",
+      createdAt: new Date().toISOString().split("T")[0],
+      responses: [],
+    }
+    setQueries([...queries, newQuery])
+    closeModal()
+  }
+
+  const addQueryResponse = (queryId: string, message: string) => {
+    // Access control: Centre admin can only respond to queries from their centre
+    if (currentUser?.role === "centre_admin") {
+      const query = queries.find((q) => q.id === queryId)
+      if (query && query.centreId !== currentUser.centreId) {
+        alert("You don't have permission to respond to queries from other centres!")
+        return
+      }
+    }
+
+    setQueries(
+      queries.map((q) => {
+        if (q.id === queryId) {
+          return {
+            ...q,
+            responses: [
+              ...q.responses,
+              {
+                id: "RES" + String(q.responses.length + 1).padStart(3, "0"),
+                message,
+                respondedBy: currentUser?.name || "",
+                respondedAt: new Date().toISOString().split("T")[0],
+                isAdmin: currentUser?.role === "super_admin",
+              },
+            ],
+            status: currentUser?.role === "super_admin" ? "in_progress" : q.status,
+          }
+        }
+        return q
+      }),
+    )
+  }
+
+  const updateQueryStatus = (queryId: string, status: Query["status"]) => {
+    // Access control: Only super admin can update query status
+    if (currentUser?.role !== "super_admin") {
+      alert("Only super admin can update query status!")
+      return
+    }
+    setQueries(queries.map((q) => (q.id === queryId ? { ...q, status } : q)))
+  }
+
+  const saveOrder = () => {
+    // Access control: Only super admin can create orders
+    if (currentUser?.role !== "super_admin") {
+      alert("Only super admin can issue orders!")
+      return
+    }
+
+    const centre = formData.targetCentreId ? centres.find((c) => c.id === formData.targetCentreId) : null
+    const newOrder: Order = {
+      ...formData,
+      id: "ORD" + String(orders.length + 1).padStart(3, "0"),
+      targetCentreName: centre?.name || "All Centres",
+      issuedBy: currentUser?.name || "",
+      issuedAt: new Date().toISOString().split("T")[0],
+      acknowledgements: [],
+    }
+    setOrders([...orders, newOrder])
+    closeModal()
+  }
+
+  const acknowledgeOrder = (orderId: string) => {
+    // Access control: Centre admin can only acknowledge orders for their centre
+    if (currentUser?.role === "centre_admin") {
+      const order = orders.find((o) => o.id === orderId)
+      if (order && order.targetCentreId !== null && order.targetCentreId !== currentUser.centreId) {
+        alert("You don't have permission to acknowledge orders for other centres!")
+        return
+      }
+    }
+
+    setOrders(
+      orders.map((o) => {
+        if (o.id === orderId) {
+          return {
+            ...o,
+            status: "acknowledged",
+            acknowledgements: [
+              ...o.acknowledgements,
+              {
+                centreId: currentUser?.centreId || "",
+                acknowledgedBy: currentUser?.name || "",
+                acknowledgedAt: new Date().toISOString().split("T")[0],
+              },
+            ],
+          }
+        }
+        return o
+      }),
+    )
+  }
+
+  const updateOrderStatus = (orderId: string, status: Order["status"]) => {
+    // Access control: Centre admin can only update orders for their centre
+    if (currentUser?.role === "centre_admin") {
+      const order = orders.find((o) => o.id === orderId)
+      if (order && order.targetCentreId !== null && order.targetCentreId !== currentUser.centreId) {
+        alert("You don't have permission to update orders for other centres!")
+        return
+      }
+      // Centre admin can only mark as completed, not other statuses
+      if (status !== "completed") {
+        alert("You can only mark orders as completed!")
+        return
+      }
+    }
+
+    setOrders(orders.map((o) => (o.id === orderId ? { ...o, status } : o)))
+  }
+
+  const addMedication = (patientId: string) => {
+    // Access control: Centre admin can only add medications to patients from their centre
+    if (currentUser?.role === "centre_admin") {
+      const patient = patients.find((p) => p.id === patientId)
+      if (patient && patient.centreId !== currentUser.centreId) {
+        alert("You don't have permission to add medications to patients from other centres!")
+        return
+      }
+    }
+
+    setPatients(
+      patients.map((p) => {
+        if (p.id === patientId) {
+          return {
+            ...p,
+            medications: [
+              ...p.medications,
+              {
+                ...formData,
+                id: "MED" + String(p.medications.length + 1).padStart(3, "0"),
+              },
+            ],
+          }
+        }
+        return p
+      }),
+    )
+    closeModal()
+  }
+
+  // Form Components
+  const CentreForm = ({ centre }: { centre?: Centre }) => (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        saveCentre(!!centre, centre?.id)
+      }}
+    >
+      <div className="form-row">
+        <div className="form-group">
+          <label>Centre Name *</label>
+          <input
+            type="text"
+            value={formData.name || centre?.name || ""}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>State *</label>
+          <select
+            value={formData.state || centre?.state || ""}
+            onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+            required
+          >
+            <option value="">Select State</option>
+            {INDIAN_STATES.map((state) => (
+              <option key={state} value={state}>
+                {state}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>City *</label>
+          <input
+            type="text"
+            value={formData.city || centre?.city || ""}
+            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Capacity *</label>
+          <input
+            type="number"
+            value={formData.capacity || centre?.capacity || ""}
+            onChange={(e) => setFormData({ ...formData, capacity: Number.parseInt(e.target.value) })}
+            required
+          />
+        </div>
+      </div>
+      <div className="form-group">
+        <label>Address *</label>
+        <textarea
+          value={formData.address || centre?.address || ""}
+          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+          rows={2}
+          required
+        />
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Phone *</label>
+          <input
+            type="tel"
+            value={formData.phone || centre?.phone || ""}
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Email *</label>
+          <input
+            type="email"
+            value={formData.email || centre?.email || ""}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            required
+          />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Administrator Name *</label>
+          <input
+            type="text"
+            value={formData.administrator || centre?.administrator || ""}
+            onChange={(e) => setFormData({ ...formData, administrator: e.target.value })}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Administrator Email *</label>
+          <input
+            type="email"
+            value={formData.adminEmail || centre?.adminEmail || ""}
+            onChange={(e) => setFormData({ ...formData, adminEmail: e.target.value })}
+            required
+          />
+        </div>
+      </div>
+      <div className="form-group">
+        <label>Status *</label>
+        <select
+          value={formData.status || centre?.status || "active"}
+          onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+          required
+        >
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div className="form-actions">
+        <button type="button" className="btn btn-outline" onClick={closeModal}>
+          Cancel
+        </button>
+        <button type="submit" className="btn btn-primary">
+          {centre ? "Update" : "Add"} Centre
+        </button>
+      </div>
+    </form>
+  )
+
+  const PatientForm = ({ patient }: { patient?: Patient }) => {
+    const availableCentres =
+      currentUser?.role === "centre_admin" ? centres.filter((c) => c.id === currentUser.centreId) : centres
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          savePatient(!!patient, patient?.id)
+        }}
+      >
+        <div className="form-row">
+          <div className="form-group">
+            <label>Full Name *</label>
+            <input
+              type="text"
+              value={formData.name || patient?.name || ""}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label>Date of Birth *</label>
+            <input
+              type="date"
+              value={formData.dob || patient?.dob || ""}
+              onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+              required
+            />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Gender *</label>
+            <select
+              value={formData.gender || patient?.gender || ""}
+              onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+              required
+            >
+              <option value="">Select</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Phone *</label>
+            <input
+              type="tel"
+              value={formData.phone || patient?.phone || ""}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              required
+            />
+          </div>
+        </div>
+        <div className="form-group">
+          <label>Address *</label>
+          <textarea
+            value={formData.address || patient?.address || ""}
+            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            rows={2}
+            required
+          />
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Aadhar Number *</label>
+            <input
+              type="text"
+              value={formData.aadharNumber || patient?.aadharNumber || ""}
+              onChange={(e) => setFormData({ ...formData, aadharNumber: e.target.value })}
+              placeholder="XXXX-XXXX-XXXX"
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label>Email</label>
+            <input
+              type="email"
+              value={formData.email || patient?.email || ""}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Family Contact Name *</label>
+            <input
+              type="text"
+              value={formData.familyContactName || patient?.familyContactName || ""}
+              onChange={(e) => setFormData({ ...formData, familyContactName: e.target.value })}
+              placeholder="Name (Relation)"
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label>Family Phone *</label>
+            <input
+              type="tel"
+              value={formData.familyContactPhone || patient?.familyContactPhone || ""}
+              onChange={(e) => setFormData({ ...formData, familyContactPhone: e.target.value })}
+              required
+            />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Addiction Type *</label>
+            <select
+              value={formData.addictionType || patient?.addictionType || ""}
+              onChange={(e) => setFormData({ ...formData, addictionType: e.target.value })}
+              required
+            >
+              <option value="">Select</option>
+              {ADDICTION_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Centre *</label>
+            <select
+              value={formData.centreId || patient?.centreId || (currentUser?.role === "centre_admin" ? currentUser.centreId : "")}
+              onChange={(e) => setFormData({ ...formData, centreId: e.target.value })}
+              required
+              disabled={currentUser?.role === "centre_admin"}
+            >
+              <option value="">Select Centre</option>
+              {availableCentres.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {currentUser?.role === "centre_admin" && (
+              <small style={{ color: "var(--gray-500)", fontSize: "0.85rem", display: "block", marginTop: "4px" }}>
+                Centre is fixed to your assigned centre
+              </small>
+            )}
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Admission Date *</label>
+            <input
+              type="date"
+              value={formData.admissionDate || patient?.admissionDate || ""}
+              onChange={(e) => setFormData({ ...formData, admissionDate: e.target.value })}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label>Status *</label>
+            <select
+              value={formData.status || patient?.status || "admitted"}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              required
+            >
+              <option value="admitted">Admitted</option>
+              <option value="under_treatment">Under Treatment</option>
+              <option value="recovering">Recovering</option>
+              <option value="discharged">Discharged</option>
+            </select>
+          </div>
+        </div>
+        <div className="form-actions">
+          <button type="button" className="btn btn-outline" onClick={closeModal}>
+            Cancel
+          </button>
+          <button type="submit" className="btn btn-primary">
+            {patient ? "Update" : "Add"} Patient
+          </button>
+        </div>
+      </form>
+    )
+  }
+
+  const QueryForm = () => {
+    const availableCentres =
+      currentUser?.role === "centre_admin" ? centres.filter((c) => c.id === currentUser.centreId) : centres
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          saveQuery()
+        }}
+      >
+        <div className="form-group">
+          <label>Centre *</label>
+          <select
+            value={formData.centreId || (currentUser?.role === "centre_admin" ? currentUser.centreId : "")}
+            onChange={(e) => setFormData({ ...formData, centreId: e.target.value })}
+            required
+            disabled={currentUser?.role === "centre_admin"}
+          >
+            <option value="">Select Centre</option>
+            {availableCentres.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Subject *</label>
+          <input
+            type="text"
+            value={formData.subject || ""}
+            onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Description *</label>
+          <textarea
+            className="response-textarea"
+            value={formData.description || ""}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            rows={4}
+            required
+            placeholder="Describe your query in detail..."
+          />
+        </div>
+        <div className="form-group">
+          <label>Priority *</label>
+          <select
+            value={formData.priority || "medium"}
+            onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+            required
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+        <div className="form-actions">
+          <button type="button" className="btn btn-outline" onClick={closeModal}>
+            Cancel
+          </button>
+          <button type="submit" className="btn btn-primary">
+            Submit Query
+          </button>
+        </div>
+      </form>
+    )
+  }
+
+  const OrderForm = () => (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        saveOrder()
+      }}
+    >
+      <div className="form-group">
+        <label>Target Centre</label>
+        <select
+          value={formData.targetCentreId || ""}
+          onChange={(e) => setFormData({ ...formData, targetCentreId: e.target.value || null })}
+        >
+          <option value="">All Centres</option>
+          {centres.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="form-group">
+        <label>Subject *</label>
+        <input
+          type="text"
+          value={formData.subject || ""}
+          onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+          required
+        />
+      </div>
+      <div className="form-group">
+        <label>Instructions *</label>
+        <textarea
+          className="response-textarea"
+          value={formData.instruction || ""}
+          onChange={(e) => setFormData({ ...formData, instruction: e.target.value })}
+          rows={4}
+          required
+          placeholder="Enter detailed instructions for the centres..."
+        />
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Priority *</label>
+          <select
+            value={formData.priority || "medium"}
+            onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+            required
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Deadline *</label>
+          <input
+            type="date"
+            value={formData.deadline || ""}
+            onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+            required
+          />
+        </div>
+      </div>
+      <div className="form-actions">
+        <button type="button" className="btn btn-outline" onClick={closeModal}>
+          Cancel
+        </button>
+        <button type="submit" className="btn btn-primary">
+          Issue Order
+        </button>
+      </div>
+    </form>
+  )
+
+  const MedicationForm = ({ patientId }: { patientId: string }) => (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        addMedication(patientId)
+      }}
+    >
+      <div className="form-row">
+        <div className="form-group">
+          <label>Medication Name *</label>
+          <input
+            type="text"
+            value={formData.name || ""}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Dosage *</label>
+          <input
+            type="text"
+            value={formData.dosage || ""}
+            onChange={(e) => setFormData({ ...formData, dosage: e.target.value })}
+            placeholder="e.g., 50mg"
+            required
+          />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Frequency *</label>
+          <input
+            type="text"
+            value={formData.frequency || ""}
+            onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
+            placeholder="e.g., Once daily"
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Start Date *</label>
+          <input
+            type="date"
+            value={formData.startDate || ""}
+            onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+            required
+          />
+        </div>
+      </div>
+      <div className="form-group">
+        <label>Prescribed By *</label>
+        <input
+          type="text"
+          value={formData.prescribedBy || ""}
+          onChange={(e) => setFormData({ ...formData, prescribedBy: e.target.value })}
+          required
+        />
+      </div>
+      <div className="form-actions">
+        <button type="button" className="btn btn-outline" onClick={closeModal}>
+          Cancel
+        </button>
+        <button type="submit" className="btn btn-primary">
+          Add Medication
+        </button>
+      </div>
+    </form>
+  )
+
+  const PatientDetails = ({ patient }: { patient: Patient }) => {
+    // Access control: Centre admin can only view patients from their centre
+    if (currentUser?.role === "centre_admin" && patient.centreId !== currentUser.centreId) {
+      return (
+        <div style={{ padding: "20px", textAlign: "center", color: "var(--red)" }}>
+          <h3>Access Denied</h3>
+          <p>You don't have permission to view patients from other centres.</p>
+        </div>
+      )
+    }
+
+    const centre = centres.find((c) => c.id === patient.centreId)
+    return (
+      <div className="patient-details">
+        <div className="detail-section">
+          <h4>Personal Information</h4>
+          <div className="detail-grid">
+            <div className="detail-item">
+              <label>Patient ID</label>
+              <span>{patient.id}</span>
+            </div>
+            <div className="detail-item">
+              <label>Status</label>
+              <span className={`badge badge-${patient.status}`}>{formatStatus(patient.status)}</span>
+            </div>
+            <div className="detail-item">
+              <label>Date of Birth</label>
+              <span>{formatDate(patient.dob)}</span>
+            </div>
+            <div className="detail-item">
+              <label>Age</label>
+              <span>{patient.age || calculateAge(patient.dob)} years</span>
+            </div>
+            <div className="detail-item">
+              <label>Gender</label>
+              <span>{patient.gender}</span>
+            </div>
+            <div className="detail-item">
+              <label>Phone</label>
+              <span>{patient.phone}</span>
+            </div>
+            <div className="detail-item">
+              <label>Address</label>
+              <span>{patient.address}</span>
+            </div>
+            <div className="detail-item">
+              <label>Email</label>
+              <span>{patient.email || "N/A"}</span>
+            </div>
+          </div>
+        </div>
+        <div className="detail-section">
+          <h4>Identity & Emergency Contact</h4>
+          <div className="detail-grid">
+            <div className="detail-item">
+              <label>Aadhar Number</label>
+              <span>{patient.aadharNumber}</span>
+            </div>
+            <div className="detail-item">
+              <label>Family Contact</label>
+              <span>{patient.familyContactName}</span>
+            </div>
+            <div className="detail-item">
+              <label>Family Phone</label>
+              <span>{patient.familyContactPhone}</span>
+            </div>
+          </div>
+        </div>
+        <div className="detail-section">
+          <h4>Treatment Information</h4>
+          <div className="detail-grid">
+            <div className="detail-item">
+              <label>Centre</label>
+              <span>{centre?.name || "Unknown"}</span>
+            </div>
+            <div className="detail-item">
+              <label>Addiction Type</label>
+              <span>{patient.addictionType}</span>
+            </div>
+            <div className="detail-item">
+              <label>Admission Date</label>
+              <span>{formatDate(patient.admissionDate)}</span>
+            </div>
+          </div>
+        </div>
+        <div className="detail-section">
+          <div className="section-header">
+            <h4>Medications</h4>
+            <button
+              className="btn btn-primary btn-small"
+              onClick={() => {
+                setFormData({})
+                openModal("Add Medication", <MedicationForm patientId={patient.id} />)
+              }}
+            >
+              + Add Medication
+            </button>
+          </div>
+          {patient.medications.length > 0 ? (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Dosage</th>
+                  <th>Frequency</th>
+                  <th>Prescribed By</th>
+                  <th>Start Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {patient.medications.map((med) => (
+                  <tr key={med.id}>
+                    <td>{med.name}</td>
+                    <td>{med.dosage}</td>
+                    <td>{med.frequency}</td>
+                    <td>{med.prescribedBy}</td>
+                    <td>{formatDate(med.startDate)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="empty-text">No medications prescribed yet.</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  const QueryDetails = ({ query }: { query: Query }) => {
+    const [responseText, setResponseText] = useState("")
+    return (
+      <div className="query-details">
+        <div className="detail-section">
+          <div className="detail-grid">
+            <div className="detail-item">
+              <label>Query ID</label>
+              <span>{query.id}</span>
+            </div>
+            <div className="detail-item">
+              <label>Status</label>
+              <span className={`badge badge-${query.status}`}>{formatStatus(query.status)}</span>
+            </div>
+            <div className="detail-item">
+              <label>Priority</label>
+              <span className={`badge priority-${query.priority}`}>{query.priority.toUpperCase()}</span>
+            </div>
+            <div className="detail-item">
+              <label>Centre</label>
+              <span>{query.centreName}</span>
+            </div>
+            <div className="detail-item">
+              <label>Created By</label>
+              <span>{query.createdBy}</span>
+            </div>
+            <div className="detail-item">
+              <label>Created On</label>
+              <span>{formatDate(query.createdAt)}</span>
+            </div>
+          </div>
+        </div>
+        <div className="detail-section">
+          <h4>Subject</h4>
+          <p>{query.subject}</p>
+        </div>
+        <div className="detail-section">
+          <h4>Description</h4>
+          <p>{query.description}</p>
+        </div>
+        <div className="detail-section">
+          <h4>Responses</h4>
+          {query.responses.length > 0 ? (
+            <div className="responses-list">
+              {query.responses.map((res) => (
+                <div key={res.id} className={`response-item ${res.isAdmin ? "admin-response" : ""}`}>
+                  <div className="response-header">
+                    <strong>{res.respondedBy}</strong>
+                    <span>{formatDate(res.respondedAt)}</span>
+                  </div>
+                  <p>{res.message}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="empty-text">No responses yet.</p>
+          )}
+        </div>
+        <div className="detail-section response-section">
+          <h4>Add Response</h4>
+          <textarea
+            className="response-textarea"
+            value={responseText}
+            onChange={(e) => setResponseText(e.target.value)}
+            rows={4}
+            placeholder="Type your response here..."
+          />
+          <div className="form-actions">
+            {currentUser?.role === "super_admin" && (
+              <select
+                className="status-dropdown"
+                onChange={(e) => {
+                  if (e.target.value) {
+                    updateQueryStatus(query.id, e.target.value as Query["status"])
+                    closeModal()
+                  }
+                }}
+                defaultValue=""
+              >
+                <option value="">Change Status</option>
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+              </select>
+            )}
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                if (responseText.trim()) {
+                  addQueryResponse(query.id, responseText)
+                  setResponseText("")
+                }
+              }}
+            >
+              Send Response
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const OrderDetails = ({ order }: { order: Order }) => (
+    <div className="order-details">
+      <div className="detail-section">
+        <div className="detail-grid">
+          <div className="detail-item">
+            <label>Order ID</label>
+            <span>{order.id}</span>
+          </div>
+          <div className="detail-item">
+            <label>Status</label>
+            <span className={`badge badge-${order.status}`}>{formatStatus(order.status)}</span>
+          </div>
+          <div className="detail-item">
+            <label>Priority</label>
+            <span className={`badge priority-${order.priority}`}>{order.priority.toUpperCase()}</span>
+          </div>
+          <div className="detail-item">
+            <label>Target</label>
+            <span>{order.targetCentreName}</span>
+          </div>
+          <div className="detail-item">
+            <label>Issued By</label>
+            <span>{order.issuedBy}</span>
+          </div>
+          <div className="detail-item">
+            <label>Issued On</label>
+            <span>{formatDate(order.issuedAt)}</span>
+          </div>
+          <div className="detail-item">
+            <label>Deadline</label>
+            <span>{formatDate(order.deadline)}</span>
+          </div>
+        </div>
+      </div>
+      <div className="detail-section">
+        <h4>Subject</h4>
+        <p>{order.subject}</p>
+      </div>
+      <div className="detail-section">
+        <h4>Instructions</h4>
+        <p>{order.instruction}</p>
+      </div>
+      {order.acknowledgements.length > 0 && (
+        <div className="detail-section">
+          <h4>Acknowledgements</h4>
+          <div className="ack-list">
+            {order.acknowledgements.map((ack, i) => (
+              <div key={i} className="ack-item">
+                <span>{ack.acknowledgedBy}</span>
+                <span>{formatDate(ack.acknowledgedAt)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="form-actions">
+        {currentUser?.role === "centre_admin" && order.status === "issued" && (
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              acknowledgeOrder(order.id)
+              closeModal()
+            }}
+          >
+            Acknowledge Order
+          </button>
+        )}
+        {currentUser?.role === "centre_admin" && order.status === "acknowledged" && (
+          <button
+            className="btn btn-success"
+            onClick={() => {
+              updateOrderStatus(order.id, "completed")
+              closeModal()
+            }}
+          >
+            Mark as Completed
+          </button>
+        )}
+        {currentUser?.role === "super_admin" && (
+          <select
+            className="status-dropdown"
+            onChange={(e) => {
+              if (e.target.value) {
+                updateOrderStatus(order.id, e.target.value as Order["status"])
+                closeModal()
+              }
+            }}
+            defaultValue=""
+          >
+            <option value="">Change Status</option>
+            <option value="issued">Issued</option>
+            <option value="acknowledged">Acknowledged</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+          </select>
+        )}
+      </div>
+    </div>
+  )
+
+  // Login Page
+  if (!currentUser) {
+    return (
+      <div className="login-page">
+        <div className="login-container">
+          <div className="login-header">
+            <div className="emblem">
+              <div className="ashoka-chakra"></div>
+            </div>
+            <h1>NRCMS</h1>
+            <p>National Rehabilitation Centre Management System</p>
+            <span className="govt-text">Government of India</span>
+          </div>
+          <form onSubmit={handleLogin} className="login-form">
+            <div className="form-group">
+              <label htmlFor="email">Email Address</label>
+              <input type="email" id="email" name="email" placeholder="Enter your email" required />
+            </div>
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
+              <input type="password" id="password" name="password" placeholder="Enter your password" required />
+            </div>
+            <button type="submit" className="btn btn-primary btn-full">
+              Sign In
+            </button>
+            <div className="demo-credentials">
+              <p>
+                <strong>Demo Credentials:</strong>
+              </p>
+              <p>Super Admin: admin@rehab.gov.in</p>
+              <p>Centre Admin: centrea@example.com</p>
+              <p>(Any password)</p>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
+  // Helper function to open add query modal
+  const openAddQueryModal = () => {
+    setFormData(currentUser.role === "centre_admin" ? { centreId: currentUser.centreId } : {})
+    openModal("Raise Query", <QueryForm />)
+  }
+
+  // Helper function to open add order modal
+  const openAddOrderModal = () => {
+    setFormData({})
+    openModal("Issue Order", <OrderForm />)
+  }
+
+  // Main Application
+  return (
+    <div className="app">
+      {/* Header */}
+      <header className="header">
+        <div className="header-left">
+          <div className="logo">
+            <div className="ashoka-chakra small"></div>
+            <span>NRCMS</span>
+          </div>
+          <nav className="nav">
+            <a
+              href="#"
+              className={`nav-link ${currentPage === "dashboard" ? "active" : ""}`}
+              onClick={(e) => {
+                e.preventDefault()
+                setCurrentPage("dashboard")
+              }}
+            >
+              Dashboard
+            </a>
+            {currentUser?.role === "super_admin" && (
+              <a
+                href="#"
+                className={`nav-link ${currentPage === "centres" ? "active" : ""}`}
+                onClick={(e) => {
+                  e.preventDefault()
+                  setCurrentPage("centres")
+                }}
+              >
+                Centres
+              </a>
+            )}
+            {currentUser?.role === "centre_admin" && (
+              <a
+                href="#"
+                className={`nav-link ${currentPage === "my-centre" ? "active" : ""}`}
+                onClick={(e) => {
+                  e.preventDefault()
+                  setCurrentPage("my-centre")
+                }}
+              >
+                My Centre
+              </a>
+            )}
+            <a
+              href="#"
+              className={`nav-link ${currentPage === "patients" ? "active" : ""}`}
+              onClick={(e) => {
+                e.preventDefault()
+                setCurrentPage("patients")
+              }}
+            >
+              Patients
+            </a>
+            <a
+              href="#"
+              className={`nav-link ${currentPage === "support" ? "active" : ""}`}
+              onClick={(e) => {
+                e.preventDefault()
+                setCurrentPage("support")
+              }}
+            >
+              Support
+            </a>
+            <a
+              href="#"
+              className={`nav-link ${currentPage === "orders" ? "active" : ""}`}
+              onClick={(e) => {
+                e.preventDefault()
+                setCurrentPage("orders")
+              }}
+            >
+              Orders
+            </a>
+          </nav>
+        </div>
+        <div className="header-right">
+          <span className="user-info">
+            {currentUser.name} ({currentUser.role === "super_admin" ? "Super Admin" : "Centre Admin"})
+          </span>
+          <button onClick={handleLogout} className="btn btn-outline">
+            Logout
+          </button>
+        </div>
+      </header>
+
+      {/* Dashboard */}
+      {currentPage === "dashboard" && (
+        <div className="page-content">
+          <div className="page-header">
+            <h1>Dashboard</h1>
+            <p>
+              {currentUser?.role === "centre_admin"
+                ? `Overview of ${filteredCentresForStats[0]?.name || "your centre"}`
+                : "Overview of rehabilitation centres across India"}
+            </p>
+          </div>
+          <div className="stats-grid">
+            <div className="stat-card saffron">
+              <div className="stat-icon">🏥</div>
+              <div className="stat-info">
+                <h3>{stats.totalCentres}</h3>
+                <p>{currentUser?.role === "centre_admin" ? "Your Centre" : "Total Centres"}</p>
+              </div>
+            </div>
+            <div className="stat-card green">
+              <div className="stat-icon">👥</div>
+              <div className="stat-info">
+                <h3>{stats.totalPatients}</h3>
+                <p>Total Patients</p>
+              </div>
+            </div>
+            <div className="stat-card blue">
+              <div className="stat-icon">📍</div>
+              <div className="stat-info">
+                <h3>{stats.totalStates}</h3>
+                <p>{currentUser?.role === "centre_admin" ? "State" : "States Covered"}</p>
+              </div>
+            </div>
+            <div className="stat-card purple">
+              <div className="stat-icon">📋</div>
+              <div className="stat-info">
+                <h3>{stats.pendingQueries}</h3>
+                <p>Pending Queries</p>
+              </div>
+            </div>
+          </div>
+          <div className="dashboard-grid">
+            <div className="card">
+              <h3>Centres by State</h3>
+              <div className="chart-bars">
+                {centresByState.map((s) => (
+                  <div key={s.state} className="bar-item">
+                    <span className="bar-label">{s.state}</span>
+                    <div className="bar-container">
+                      <div
+                        className="bar"
+                        style={{ width: `${(s.count / Math.max(...centresByState.map((x) => x.count))) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="bar-value">{s.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="card">
+              <h3>Patient Status</h3>
+              <div className="status-legend">
+                {patientsByStatus.map((s) => (
+                  <div key={s.status} className="legend-item">
+                    <span className="legend-color" style={{ backgroundColor: s.color }}></span>
+                    <span>
+                      {formatStatus(s.status)}: {s.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="card">
+              <h3>Addiction Types</h3>
+              <div className="addiction-stats">
+                {addictionStats.map((a) => (
+                  <div key={a.type} className="addiction-item">
+                    <span>{a.type}</span>
+                    <span className="count">{a.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="card">
+              <h3>Recent Orders</h3>
+              <div className="recent-list">
+                {filteredOrdersForStats.slice(0, 3).map((o) => (
+                  <div key={o.id} className="recent-item">
+                    <span className={`badge priority-${o.priority}`}>{o.priority}</span>
+                    <span>{o.subject}</span>
+                  </div>
+                ))}
+                {filteredOrdersForStats.length === 0 && <p className="no-data">No orders yet</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* My Centre page for centre admin to view/edit their own centre */}
+      {currentPage === "my-centre" && currentUser?.role === "centre_admin" && (
+        <div className="page-content">
+          <div className="page-header">
+            <h1>My Centre</h1>
+            <p>View and manage your rehabilitation centre details</p>
+          </div>
+          {(() => {
+            const myCentre = centres.find((c) => c.id === currentUser.centreId)
+            if (!myCentre) return <p>Centre not found</p>
+            // Function to open edit modal
+            const openEditCentreModal = (centreToEdit: Centre) => {
+              setFormData(centreToEdit)
+              openModal("Edit Centre Details", <CentreForm centre={centreToEdit} />)
+            }
+            return (
+              <div className="centre-detail-card">
+                <div className="detail-header">
+                  <h2>{myCentre.name}</h2>
+                  <span className="centre-id">{myCentre.id}</span>
+                </div>
+                <div className="detail-grid">
+                  <div className="detail-item">
+                    <label>State</label>
+                    <span>{myCentre.state}</span>
+                  </div>
+                  <div className="detail-item">
+                    <label>City</label>
+                    <span>{myCentre.city}</span>
+                  </div>
+                  <div className="detail-item">
+                    <label>Address</label>
+                    <span>{myCentre.address}</span>
+                  </div>
+                  <div className="detail-item">
+                    <label>Total Patients</label>
+                    <span>{patients.filter((p) => p.centreId === myCentre.id).length}</span>
+                  </div>
+                  <div className="detail-item">
+                    <label>Contact</label>
+                    <span>{myCentre.phone}</span>
+                  </div>
+                  <div className="detail-item">
+                    <label>Email</label>
+                    <span>{myCentre.email}</span>
+                  </div>
+                  <div className="detail-item">
+                    <label>Capacity</label>
+                    <span>{myCentre.capacity} beds</span>
+                  </div>
+                  <div className="detail-item">
+                    <label>Administrator</label>
+                    <span>{myCentre.administrator}</span>
+                  </div>
+                </div>
+                <div className="detail-actions">
+                  <button className="btn btn-primary" onClick={() => openEditCentreModal(myCentre)}>
+                    Edit Centre Details
+                  </button>
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
+      {/* Centres - Only for Super Admin */}
+      {currentPage === "centres" && currentUser?.role === "super_admin" && (
+        <div className="page-content">
+          <div className="page-header">
+            <h1>Rehabilitation Centres</h1>
+            {currentUser.role === "super_admin" && (
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setFormData({})
+                  openModal("Add New Centre", <CentreForm />)
+                }}
+              >
+                + Add Centre
+              </button>
+            )}
+          </div>
+          <div className="filters">
+            <input
+              type="text"
+              placeholder="Search centres..."
+              className="search-input"
+              value={centreSearch}
+              onChange={(e) => setCentreSearch(e.target.value)}
+            />
+            <select className="select-input" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
+              <option value="">All States</option>
+              {INDIAN_STATES.map((state) => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Centre ID</th>
+                  <th>Name</th>
+                  <th>State</th>
+                  <th>City</th>
+                  <th>Patients</th>
+                  <th>Administrator</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {getFilteredCentres().length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="empty-state">
+                      No centres found
+                    </td>
+                  </tr>
+                ) : (
+                  getFilteredCentres().map((c) => (
+                    <tr key={c.id}>
+                      <td>
+                        <strong>{c.id}</strong>
+                      </td>
+                      <td>{c.name}</td>
+                      <td>{c.state}</td>
+                      <td>{c.city}</td>
+                      <td>{patients.filter((p) => p.centreId === c.id).length}</td>
+                      <td>{c.administrator}</td>
+                      <td>
+                        <span className={`badge badge-${c.status}`}>{formatStatus(c.status)}</span>
+                      </td>
+                      <td>
+                        <div className="action-buttons">
+                          <button
+                            className="btn btn-outline btn-small"
+                            onClick={() =>
+                              openModal(
+                                c.name,
+                                <div className="detail-grid">
+                                  <div className="detail-item">
+                                    <label>ID</label>
+                                    <span>{c.id}</span>
+                                  </div>
+                                  <div className="detail-item">
+                                    <label>State</label>
+                                    <span>{c.state}</span>
+                                  </div>
+                                  <div className="detail-item">
+                                    <label>City</label>
+                                    <span>{c.city}</span>
+                                  </div>
+                                  <div className="detail-item">
+                                    <label>Address</label>
+                                    <span>{c.address}</span>
+                                  </div>
+                                  <div className="detail-item">
+                                    <label>Phone</label>
+                                    <span>{c.phone}</span>
+                                  </div>
+                                  <div className="detail-item">
+                                    <label>Email</label>
+                                    <span>{c.email}</span>
+                                  </div>
+                                  <div className="detail-item">
+                                    <label>Capacity</label>
+                                    <span>{c.capacity}</span>
+                                  </div>
+                                  <div className="detail-item">
+                                    <label>Administrator</label>
+                                    <span>{c.administrator}</span>
+                                  </div>
+                                </div>,
+                              )
+                            }
+                          >
+                            View
+                          </button>
+                          {currentUser.role === "super_admin" && (
+                            <button
+                              className="btn btn-outline btn-small"
+                              onClick={() => {
+                                setFormData(c)
+                                openModal("Edit Centre", <CentreForm centre={c} />)
+                              }}
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {currentUser.role === "super_admin" && (
+                            <button className="btn btn-danger btn-small" onClick={() => deleteCentre(c.id)}>
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Patients Page */}
+      {currentPage === "patients" && (
+        <div className="page-content">
+          <div className="page-header">
+            <h1>Patients</h1>
+            <p>
+              {currentUser?.role === "centre_admin"
+                ? "Manage patient records for your centre"
+                : "Manage patient records across all centres"}
+            </p>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                setFormData(currentUser.role === "centre_admin" ? { centreId: currentUser.centreId } : {})
+                openModal("Add New Patient", <PatientForm />)
+              }}
+            >
+              + Add Patient
+            </button>
+          </div>
+          <div className="filters">
+            <input
+              type="text"
+              placeholder="Search by name, ID or Aadhar..."
+              value={patientSearch}
+              onChange={(e) => setPatientSearch(e.target.value)}
+            />
+            {currentUser?.role === "super_admin" && (
+              <select value={centreFilter} onChange={(e) => setCentreFilter(e.target.value)}>
+                <option value="">All Centres</option>
+                {centres.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="">All Status</option>
+              <option value="admitted">Admitted</option>
+              <option value="under_treatment">Under Treatment</option>
+              <option value="recovering">Recovering</option>
+              <option value="discharged">Discharged</option>
+            </select>
+          </div>
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Patient ID</th>
+                  <th>Name</th>
+                  <th>Age</th>
+                  <th>Centre</th>
+                  <th>Addiction Type</th>
+                  <th>Status</th>
+                  <th>Admitted On</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {getFilteredPatients().length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="empty-state">
+                      No patients found
+                    </td>
+                  </tr>
+                ) : (
+                  getFilteredPatients().map((p) => {
+                    const centre = centres.find((c) => c.id === p.centreId)
+                    return (
+                      <tr key={p.id}>
+                        <td>
+                          <strong>{p.id}</strong>
+                        </td>
+                        <td>{p.name}</td>
+                        <td>{p.age || calculateAge(p.dob)}</td>
+                        <td>{centre?.name || "Unknown"}</td>
+                        <td>{p.addictionType}</td>
+                        <td>
+                          <span className={`badge badge-${p.status}`}>{formatStatus(p.status)}</span>
+                        </td>
+                        <td>{formatDate(p.admissionDate)}</td>
+                        <td>
+                          <div className="action-buttons">
+                            <button
+                              className="btn btn-outline btn-small"
+                              onClick={() => openModal(p.name, <PatientDetails patient={p} />)}
+                            >
+                              View
+                            </button>
+                            <button
+                              className="btn btn-outline btn-small"
+                              onClick={() => {
+                                setFormData(p)
+                                openModal("Edit Patient", <PatientForm patient={p} />)
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button className="btn btn-danger btn-small" onClick={() => deletePatient(p.id)}>
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Support Page */}
+      {currentPage === "support" && (
+        <div className="page-content">
+          <div className="page-header">
+            <h1>Support & Queries</h1>
+            <p>
+              {currentUser?.role === "centre_admin"
+                ? "Raise queries and get support from headquarters"
+                : "Manage support queries from all centres"}
+            </p>
+            {/* Only centre admin can raise new queries */}
+            {currentUser?.role === "centre_admin" && (
+              <button className="btn btn-primary" onClick={openAddQueryModal}>
+                + Raise Query
+              </button>
+            )}
+          </div>
+          <div className="filters">
+            <select
+              className="select-input"
+              value={queryStatusFilter}
+              onChange={(e) => setQueryStatusFilter(e.target.value)}
+            >
+              <option value="">All Status</option>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+            </select>
+            <select
+              className="select-input"
+              value={queryPriorityFilter}
+              onChange={(e) => setQueryPriorityFilter(e.target.value)}
+            >
+              <option value="">All Priority</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Query ID</th>
+                  <th>Subject</th>
+                  <th>Centre</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {getFilteredQueries().length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="empty-state">
+                      No queries found
+                    </td>
+                  </tr>
+                ) : (
+                  getFilteredQueries().map((q) => (
+                    <tr key={q.id}>
+                      <td>
+                        <strong>{q.id}</strong>
+                      </td>
+                      <td>{q.subject}</td>
+                      <td>{q.centreName}</td>
+                      <td>
+                        <span className={`badge priority-${q.priority}`}>{q.priority.toUpperCase()}</span>
+                      </td>
+                      <td>
+                        <span className={`badge badge-${q.status}`}>{formatStatus(q.status)}</span>
+                      </td>
+                      <td>{formatDate(q.createdAt)}</td>
+                      <td>
+                        <div className="action-buttons">
+                          <button
+                            className="btn btn-outline btn-small"
+                            onClick={() => openModal(`Query: ${q.subject}`, <QueryDetails query={q} />)}
+                          >
+                            View
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Orders Page */}
+      {currentPage === "orders" && (
+        <div className="page-content">
+          <div className="page-header">
+            <h1>Orders & Instructions</h1>
+            <p>
+              {currentUser?.role === "centre_admin"
+                ? "View orders and instructions from headquarters"
+                : "Issue orders and instructions to centres"}
+            </p>
+            {currentUser?.role === "super_admin" && (
+              <button className="btn btn-primary" onClick={openAddOrderModal}>
+                + Issue Order
+              </button>
+            )}
+          </div>
+          <div className="filters">
+            <select
+              className="select-input"
+              value={orderStatusFilter}
+              onChange={(e) => setOrderStatusFilter(e.target.value)}
+            >
+              <option value="">All Status</option>
+              <option value="issued">Issued</option>
+              <option value="acknowledged">Acknowledged</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+            </select>
+            <select
+              className="select-input"
+              value={orderPriorityFilter}
+              onChange={(e) => setOrderPriorityFilter(e.target.value)}
+            >
+              <option value="">All Priority</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Subject</th>
+                  <th>Target</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Deadline</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {getFilteredOrders().length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="empty-state">
+                      No orders found
+                    </td>
+                  </tr>
+                ) : (
+                  getFilteredOrders().map((o) => (
+                    <tr key={o.id}>
+                      <td>
+                        <strong>{o.id}</strong>
+                      </td>
+                      <td>{o.subject}</td>
+                      <td>{o.targetCentreName}</td>
+                      <td>
+                        <span className={`badge priority-${o.priority}`}>{o.priority.toUpperCase()}</span>
+                      </td>
+                      <td>
+                        <span className={`badge badge-${o.status}`}>{formatStatus(o.status)}</span>
+                      </td>
+                      <td>{formatDate(o.deadline)}</td>
+                      <td>
+                        <div className="action-buttons">
+                          <button
+                            className="btn btn-outline btn-small"
+                            onClick={() => openModal(`Order: ${o.subject}`, <OrderDetails order={o} />)}
+                          >
+                            View
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal */}
+      {modalOpen && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{modalTitle}</h2>
+              <button className="modal-close" onClick={closeModal}>
+                &times;
+              </button>
+            </div>
+            <div className="modal-content">{modalContent}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
