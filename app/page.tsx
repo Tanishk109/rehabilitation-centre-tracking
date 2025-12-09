@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect, useCallback } from "react"
-import { centresAPI, patientsAPI, queriesAPI, ordersAPI } from "@/lib/api"
+import { centresAPI, patientsAPI, queriesAPI, ordersAPI, usersAPI, registerAPI } from "@/lib/api"
 
 // Types
 interface User {
@@ -14,6 +14,11 @@ interface User {
   centreId: string | null
   status?: "pending" | "approved" | "rejected"
   phone?: string
+  dob?: string // Date of birth
+  age?: number
+  aadharNumber?: string
+  address?: string
+  employeeCode?: string // Unique employee code
   centreName?: string
   centreAddress?: string
   centreState?: string
@@ -384,6 +389,237 @@ const formatStatus = (status: string) => {
   return status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
 }
 
+// Profile Form Component
+const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdate: (updatedUser: User) => void; readOnly?: boolean }) => {
+  const [profileData, setProfileData] = useState({
+    name: user.name || "",
+    email: user.email || "",
+    phone: user.phone || "",
+    dob: user.dob || "",
+    age: user.age || "",
+    aadharNumber: user.aadharNumber || "",
+    address: user.address || "",
+  })
+  const [isEditing, setIsEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+
+    try {
+      // Calculate age if DOB is provided
+      let finalData = { ...profileData }
+      if (finalData.dob) {
+        const today = new Date()
+        const birthDate = new Date(finalData.dob)
+        let age = today.getFullYear() - birthDate.getFullYear()
+        const monthDiff = today.getMonth() - birthDate.getMonth()
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--
+        }
+        finalData.age = age
+      }
+
+      const response = await usersAPI.updateProfile({
+        userId: user.id,
+        ...finalData,
+      })
+
+      if (response.success) {
+        const updatedUser = { ...user, ...response.data }
+        onUpdate(updatedUser)
+        setIsEditing(false)
+      } else {
+        alert(response.error || "Failed to update profile")
+      }
+    } catch (error) {
+      console.error("Error updating profile:", error)
+      alert("Error updating profile. Please try again.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!isEditing) {
+    return (
+      <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+        <div className="detail-section">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+            <h4>Personal Information</h4>
+            {!readOnly && (
+              <button className="btn btn-primary" onClick={() => setIsEditing(true)}>
+                Edit Profile
+              </button>
+            )}
+          </div>
+          <div className="detail-grid">
+            <div className="detail-item">
+              <label>Name</label>
+              <span>{profileData.name || "Not set"}</span>
+            </div>
+            <div className="detail-item">
+              <label>Email</label>
+              <span>{profileData.email || "Not set"}</span>
+            </div>
+            <div className="detail-item">
+              <label>Phone</label>
+              <span>{profileData.phone || "Not set"}</span>
+            </div>
+            <div className="detail-item">
+              <label>Date of Birth</label>
+              <span>{profileData.dob ? new Date(profileData.dob).toLocaleDateString() : "Not set"}</span>
+            </div>
+            <div className="detail-item">
+              <label>Age</label>
+              <span>{profileData.age ? `${profileData.age} years` : "Not set"}</span>
+            </div>
+            <div className="detail-item">
+              <label>Aadhar Number</label>
+              <span>{profileData.aadharNumber || "Not set"}</span>
+            </div>
+            <div className="detail-item" style={{ gridColumn: "1 / -1" }}>
+              <label>Address</label>
+              <span>{profileData.address || "Not set"}</span>
+            </div>
+            <div className="detail-item">
+              <label>Employee Code</label>
+              <span style={{ fontWeight: "600", color: "var(--navy-blue)" }}>{user.employeeCode || "Not assigned"}</span>
+            </div>
+            {user.role === "centre_admin" && user.centreName && (
+              <>
+                <div className="detail-item">
+                  <label>Centre Name</label>
+                  <span>{user.centreName}</span>
+                </div>
+                {user.centreCity && user.centreState && (
+                  <div className="detail-item">
+                    <label>Centre Location</label>
+                    <span>{user.centreCity}, {user.centreState}</span>
+                  </div>
+                )}
+              </>
+            )}
+            <div className="detail-item">
+              <label>Role</label>
+              <span className="badge badge-active">{user.role === "super_admin" ? "Super Admin" : "Centre Admin"}</span>
+            </div>
+            <div className="detail-item">
+              <label>User ID</label>
+              <span>{user.id}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+      <form onSubmit={handleSave}>
+        <div className="detail-section">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+            <h4>Edit Personal Information</h4>
+            <button type="button" className="btn btn-outline" onClick={() => setIsEditing(false)}>
+              Cancel
+            </button>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Name *</label>
+              <input
+                type="text"
+                value={profileData.name}
+                onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Email *</label>
+              <input
+                type="email"
+                value={profileData.email}
+                onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                required
+                disabled
+                style={{ background: "var(--gray-100)", cursor: "not-allowed" }}
+              />
+              <small style={{ color: "var(--gray-600)", fontSize: "0.85rem" }}>Email cannot be changed</small>
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Phone Number</label>
+              <input
+                type="tel"
+                value={profileData.phone}
+                onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                placeholder="Enter phone number"
+                maxLength={10}
+              />
+            </div>
+            <div className="form-group">
+              <label>Date of Birth</label>
+              <input
+                type="date"
+                value={profileData.dob}
+                onChange={(e) => {
+                  setProfileData({ ...profileData, dob: e.target.value })
+                }}
+                max={new Date().toISOString().split("T")[0]}
+              />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Age</label>
+              <input
+                type="number"
+                value={profileData.age || ""}
+                onChange={(e) => setProfileData({ ...profileData, age: parseInt(e.target.value) || "" })}
+                placeholder="Auto-calculated from DOB"
+                min={18}
+                max={100}
+              />
+              <small style={{ color: "var(--gray-600)", fontSize: "0.85rem" }}>
+                Will be auto-calculated if DOB is provided
+              </small>
+            </div>
+            <div className="form-group">
+              <label>Aadhar Number</label>
+              <input
+                type="text"
+                value={profileData.aadharNumber}
+                onChange={(e) => setProfileData({ ...profileData, aadharNumber: e.target.value.replace(/\D/g, "").slice(0, 12) })}
+                placeholder="12-digit Aadhar number"
+                maxLength={12}
+                pattern="[0-9]{12}"
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Address</label>
+            <textarea
+              value={profileData.address}
+              onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
+              placeholder="Enter your address"
+              rows={3}
+            />
+          </div>
+          <div className="form-actions">
+            <button type="button" className="btn btn-outline" onClick={() => setIsEditing(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [currentPage, setCurrentPage] = useState("dashboard")
@@ -392,6 +628,7 @@ export default function Home() {
   const [queries, setQueries] = useState<Query[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [pendingRegistrations, setPendingRegistrations] = useState<User[]>([])
+  const [centreAdmins, setCentreAdmins] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [modalTitle, setModalTitle] = useState("")
@@ -467,9 +704,10 @@ export default function Home() {
         setOrders(ordersResponse.data || [])
       }
 
-      // Fetch pending registrations for super admin
+      // Fetch pending registrations and centre admins for super admin
       if (currentUser.role === "super_admin") {
         fetchPendingRegistrations()
+        fetchCentreAdmins()
       }
     } catch (error) {
       console.error("Error fetching data:", error)
@@ -513,12 +751,25 @@ export default function Home() {
     }
   }, [currentUser])
 
-  // Fetch pending registrations for super admin
+  const fetchCentreAdmins = useCallback(async () => {
+    if (!currentUser || currentUser.role !== "super_admin") return
+    try {
+      const response = await registerAPI.getCentreAdmins(currentUser.role)
+      if (response.success) {
+        setCentreAdmins(response.data || [])
+      }
+    } catch (error) {
+      console.error("Error fetching centre admins:", error)
+    }
+  }, [currentUser])
+
+  // Fetch pending registrations and centre admins for super admin
   useEffect(() => {
     if (currentUser?.role === "super_admin") {
       fetchPendingRegistrations()
+      fetchCentreAdmins()
     }
-  }, [currentUser, fetchPendingRegistrations])
+  }, [currentUser, fetchPendingRegistrations, fetchCentreAdmins])
 
   const handleApproveRegistration = async (userId: string, action: "approve" | "reject", rejectionReason?: string) => {
     try {
@@ -2092,6 +2343,28 @@ export default function Home() {
                 )}
               </a>
             )}
+            <a
+              href="#"
+              className={`nav-link ${currentPage === "profile" ? "active" : ""}`}
+              onClick={(e) => {
+                e.preventDefault()
+                setCurrentPage("profile")
+              }}
+            >
+              Profile
+            </a>
+            {currentUser?.role === "super_admin" && (
+              <a
+                href="#"
+                className={`nav-link ${currentPage === "centre-admins" ? "active" : ""}`}
+                onClick={(e) => {
+                  e.preventDefault()
+                  setCurrentPage("centre-admins")
+                }}
+              >
+                Centre Admins
+              </a>
+            )}
           </nav>
         </div>
         <div className="header-right">
@@ -2838,6 +3111,107 @@ export default function Home() {
                       </td>
                     </tr>
                   ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Profile Page - For Both Super Admin and Centre Admin */}
+      {currentPage === "profile" && currentUser && (
+        <div className="page-content">
+          <div className="page-header">
+            <h1>My Profile</h1>
+            <p>View and update your personal information</p>
+          </div>
+          
+          <ProfileForm user={currentUser} onUpdate={async (updatedUser) => {
+            setCurrentUser(updatedUser)
+            localStorage.setItem("nrcms_current_user", JSON.stringify(updatedUser))
+            alert("Profile updated successfully!")
+          }} />
+        </div>
+      )}
+
+      {/* Centre Admins Page - Super Admin Only */}
+      {currentPage === "centre-admins" && currentUser?.role === "super_admin" && (
+        <div className="page-content">
+          <div className="page-header">
+            <h1>Centre Admins</h1>
+            <p>View all centre administrator profiles</p>
+          </div>
+          
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Employee Code</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Centre Name</th>
+                  <th>Location</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {centreAdmins.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="empty-state">
+                      No centre admins found
+                    </td>
+                  </tr>
+                ) : (
+                  centreAdmins.map((admin) => {
+                    const adminCentre = centres.find((c) => c.id === admin.centreId)
+                    return (
+                      <tr key={admin.id}>
+                        <td>
+                          <strong style={{ color: "var(--navy-blue)" }}>
+                            {admin.employeeCode || "N/A"}
+                          </strong>
+                        </td>
+                        <td>
+                          <strong>{admin.name}</strong>
+                        </td>
+                        <td>{admin.email}</td>
+                        <td>{admin.phone || "N/A"}</td>
+                        <td>{adminCentre?.name || admin.centreName || "N/A"}</td>
+                        <td>
+                          {adminCentre 
+                            ? `${adminCentre.city}, ${adminCentre.state}`
+                            : admin.centreCity && admin.centreState
+                            ? `${admin.centreCity}, ${admin.centreState}`
+                            : "N/A"}
+                        </td>
+                        <td>
+                          <span className={`badge badge-${admin.status || "approved"}`}>
+                            {formatStatus(admin.status || "approved")}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            className="btn btn-primary btn-small"
+                            onClick={() => openModal(
+                              `Profile: ${admin.name}`,
+                              <ProfileForm 
+                                user={admin} 
+                                onUpdate={async () => {
+                                  await fetchCentreAdmins()
+                                  closeModal()
+                                }} 
+                                readOnly={true}
+                              />
+                            )}
+                          >
+                            View Profile
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>

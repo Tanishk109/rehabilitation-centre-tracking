@@ -12,6 +12,7 @@ if (!process.env.MONGODB_URI) {
 }
 
 import { getDatabase } from '../lib/mongodb'
+import { generateEmployeeCode, ensureEmployeeCode } from '../lib/employee-code'
 
 async function createSuperAdmin() {
   try {
@@ -32,6 +33,9 @@ async function createSuperAdmin() {
       const saltRounds = 10
       const hashedPassword = await bcrypt.hash(password, saltRounds)
       
+      // Ensure employee code exists
+      const employeeCode = await ensureEmployeeCode(existingUser.id, 'super_admin')
+      
       // Update user to ensure super admin status and update password
       await usersCollection.updateOne(
         { email: email.toLowerCase() },
@@ -40,6 +44,7 @@ async function createSuperAdmin() {
             role: 'super_admin',
             password: hashedPassword,
             status: 'approved',
+            employeeCode,
             updatedAt: new Date(),
           }
         }
@@ -48,6 +53,7 @@ async function createSuperAdmin() {
       console.log('✓ Super admin user updated successfully!')
       console.log(`Email: ${email}`)
       console.log(`Password: ${password}`)
+      console.log(`Employee Code: ${employeeCode}`)
     } else {
       console.log('Creating new super admin user...')
       
@@ -59,6 +65,9 @@ async function createSuperAdmin() {
       const count = await usersCollection.countDocuments()
       const userId = `admin${String(count + 1).padStart(3, '0')}`
       
+      // Generate unique employee code
+      const employeeCode = await generateEmployeeCode('super_admin')
+      
       // Create super admin user
       const superAdmin = {
         id: userId,
@@ -67,6 +76,7 @@ async function createSuperAdmin() {
         role: 'super_admin',
         centreId: null,
         password: hashedPassword,
+        employeeCode,
         status: 'approved',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -78,6 +88,7 @@ async function createSuperAdmin() {
       console.log(`Email: ${email}`)
       console.log(`Password: ${password}`)
       console.log(`User ID: ${userId}`)
+      console.log(`Employee Code: ${employeeCode}`)
     }
     
     console.log('\n✅ Super admin account is ready to use!')

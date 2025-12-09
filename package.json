@@ -9,7 +9,10 @@
     "start": "next start",
     "seed": "tsx scripts/seed-database.ts",
     "test-db": "tsx scripts/test-connection.ts",
-    "create-super-admin": "tsx scripts/create-super-admin.ts"
+    "create-super-admin": "tsx scripts/create-super-admin.ts",
+    "check-users": "tsx scripts/check-users.ts",
+    "reset-passwords": "tsx scripts/reset-super-admin-passwords.ts",
+    "assign-employee-codes": "tsx scripts/assign-employee-codes.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

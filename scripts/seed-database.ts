@@ -12,6 +12,7 @@ if (!process.env.MONGODB_URI) {
 }
 
 import { getDatabase } from '../lib/mongodb'
+import { generateEmployeeCode } from '../lib/employee-code'
 
 const INDIAN_STATES = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
@@ -73,9 +74,13 @@ async function seedDatabase() {
     ]
 
     for (const user of users) {
+      // Generate employee code for each user
+      const employeeCode = await generateEmployeeCode(user.role)
+      const userWithCode = { ...user, employeeCode }
+      
       await usersCollection.updateOne(
         { email: user.email },
-        { $set: user },
+        { $set: userWithCode },
         { upsert: true }
       )
     }

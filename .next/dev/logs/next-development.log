@@ -15,3 +15,58 @@
 [00:00:33.616] Server  LOG     Login URL: http://localhost:3000
 [00:00:33.616] Server  LOG     ============================================
 [00:02:47.649] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","sdkn":"@vercel/analytics/next","sdkv":"1.6.1","sv":"0.1.3","ts":1765304528486}
+[01:12:09.363] Server  LOG      ✓ Compiled in 138ms
+[01:12:45.877] Server  LOG      ✓ Compiled in 10ms
+[01:13:31.529] Server  LOG      ✓ Compiled in 73ms
+[01:14:03.958] Server  LOG      ✓ Compiled in 85ms
+[01:14:38.263] Server  LOG      ✓ Compiled in 494ms
+[01:15:14.848] Server  LOG      ✓ Compiled in 95ms
+[01:15:39.278] Server  LOG      ✓ Compiled in 138ms
+[01:17:30.648] Server  LOG      ✓ Compiled in 101ms
+[01:19:50.066] Server  LOG      ✓ Compiled in 104ms
+[01:24:09.473] Server  LOG      ✓ Compiled in 392ms
+[01:25:03.476] Server  LOG      ✓ Compiled in 17ms
+[01:25:24.745] Server  LOG      ✓ Compiled in 53ms
+[01:25:35.993] Server  LOG      ✓ Compiled in 110ms
+[01:26:09.456] Server  LOG      ✓ Compiled in 130ms
+[01:26:35.294] Server  LOG      ✓ Compiled in 96ms
+[01:26:46.705] Server  LOG      ✓ Compiled in 125ms
+[01:26:57.471] Server  LOG      ✓ Compiled in 96ms
+[01:26:57.955] Browser ERROR   The final argument passed to %s changed size between renders. The order and size of this array must remain constant.
+
+Previous: %s
+Incoming: %s useEffect [, async ()=>{
+            if (!currentUser || currentUser.role !== "super_admin") return;
+            try {
+                const response = await fetch(`/api/register?status=pending&role=${currentUser.role}`);
+                const data = await response.json();
+                if (data.success) {
+                    setPendingRegistrations(data.data);
+                }
+            } catch (error) {
+                console.error("Error fetching registrations:", error);
+            }
+        }] [, async ()=>{
+            if (!currentUser || currentUser.role !== "super_admin") return;
+            try {
+                const response = await fetch(`/api/register?status=pending&role=${currentUser.role}`);
+                const data = await response.json();
+                if (data.success) {
+                    setPendingRegistrations(data.data);
+                }
+            } catch (error) {
+                console.error("Error fetching registrations:", error);
+            }
+        }, async ()=>{
+            if (!currentUser || currentUser.role !== "super_admin") return;
+            try {
+                const response = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["registerAPI"].getCentreAdmins(currentUser.role);
+                if (response.success) {
+                    setCentreAdmins(response.data || []);
+                }
+            } catch (error) {
+                console.error("Error fetching centre admins:", error);
+            }
+        }]
+[01:27:51.130] Server  LOG      ✓ Compiled in 151ms
+[01:28:32.126] Server  LOG      ✓ Compiled in 211ms

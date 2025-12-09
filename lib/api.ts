@@ -90,9 +90,26 @@ export const ordersAPI = {
   acknowledge: (data: Record<string, unknown>) => apiRequest('/orders', { method: 'PATCH', body: JSON.stringify(data) }),
 }
 
+// Register API (includes centre admins list)
+export const registerAPI = {
+  getAll: (role?: string, status?: string) => {
+    const params = new URLSearchParams()
+    if (role) params.append('role', role)
+    if (status) params.append('status', status)
+    return apiRequest(`/register?${params.toString()}`)
+  },
+  getCentreAdmins: (role: string) => {
+    const params = new URLSearchParams({ type: 'centre-admins', role })
+    return apiRequest(`/register?${params.toString()}`)
+  },
+  create: (data: Record<string, unknown>) => apiRequest('/register', { method: 'POST', body: JSON.stringify(data) }),
+  updateStatus: (data: Record<string, unknown>) => apiRequest('/register', { method: 'PUT', body: JSON.stringify(data) }),
+}
+
 // Users API
 export const usersAPI = {
   getByEmail: (email: string) => apiRequest(`/users?email=${encodeURIComponent(email)}`),
   create: (data: Record<string, unknown>) => apiRequest('/users', { method: 'POST', body: JSON.stringify(data) }),
+  updateProfile: (data: Record<string, unknown>) => apiRequest('/users', { method: 'PATCH', body: JSON.stringify(data) }),
 }
 

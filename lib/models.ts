@@ -10,6 +10,11 @@ export interface User {
   password?: string
   status?: "pending" | "approved" | "rejected" // Optional - only for centre_admin
   phone?: string
+  dob?: string // Date of birth
+  age?: number
+  aadharNumber?: string
+  address?: string
+  employeeCode?: string // Unique employee code
   centreName?: string
   centreAddress?: string
   centreState?: string
