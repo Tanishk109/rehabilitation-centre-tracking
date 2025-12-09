@@ -196,7 +196,7 @@ async function GET(request) {
         const db = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$mongodb$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getDatabase"])();
         const usersCollection = db.collection('users');
         const { searchParams } = new URL(request.url);
-        const status = searchParams.get('status') || 'pending';
+        const statusParam = searchParams.get('status') || 'pending';
         const role = searchParams.get('role');
         // Only super admin can view registrations
         if (role !== 'super_admin') {
@@ -207,10 +207,18 @@ async function GET(request) {
                 status: 403
             });
         }
-        const query = {
-            status
-        };
-        if (status === 'pending') {
+        // Build query with proper types
+        const query = {};
+        // Validate and set status
+        if (statusParam && [
+            'pending',
+            'approved',
+            'rejected'
+        ].includes(statusParam)) {
+            query.status = statusParam;
+        }
+        // Only filter by role for pending registrations
+        if (statusParam === 'pending') {
             query.role = 'centre_admin';
         }
         const registrations = await usersCollection.find(query).sort({

@@ -107,11 +107,7 @@ interface Acknowledgement {
 }
 
 // Constants
-const ADMIN_USERS: User[] = [
-  { id: "admin1", name: "Dr. Rajesh Kumar", email: "admin@rehab.gov.in", role: "super_admin", centreId: null },
-  { id: "admin2", name: "Mr. Anil Deshmukh", email: "centrea@example.com", role: "centre_admin", centreId: "C001" },
-  { id: "admin3", name: "Dr. Priya Sharma", email: "centreb@example.com", role: "centre_admin", centreId: "C002" },
-]
+// Removed hardcoded ADMIN_USERS - all authentication should go through database
 
 const INDIAN_STATES = [
   "Andhra Pradesh",
@@ -412,8 +408,8 @@ export default function Home() {
   const [orderStatusFilter, setOrderStatusFilter] = useState("")
   const [orderPriorityFilter, setOrderPriorityFilter] = useState("")
 
-  // Form states
-  const [formData, setFormData] = useState<any>({})
+  // Form states - using Record for flexible form handling
+  const [formData, setFormData] = useState<Record<string, string | number | null | undefined>>({})
 
   useEffect(() => {
     const savedUser = localStorage.getItem("nrcms_current_user")
@@ -477,11 +473,12 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Error fetching data:", error)
-      // Fallback to initial data if API fails
-      setCentres(initialCentres)
-      setPatients(initialPatients)
-      setQueries(initialQueries)
-      setOrders(initialOrders)
+      // Don't fallback to initial data - keep empty arrays if API fails
+      setCentres([])
+      setPatients([])
+      setQueries([])
+      setOrders([])
+      alert("Failed to fetch data. Please refresh the page.")
     } finally {
       setLoading(false)
     }
@@ -503,16 +500,10 @@ export default function Home() {
     }
   }, [currentPage, currentUser, fetchAllData])
 
-  // Fetch pending registrations for super admin
-  useEffect(() => {
-    if (currentUser?.role === "super_admin") {
-      fetchPendingRegistrations()
-    }
-  }, [currentUser])
-
-  const fetchPendingRegistrations = async () => {
+  const fetchPendingRegistrations = useCallback(async () => {
+    if (!currentUser || currentUser.role !== "super_admin") return
     try {
-      const response = await fetch(`/api/register?status=pending&role=${currentUser?.role}`)
+      const response = await fetch(`/api/register?status=pending&role=${currentUser.role}`)
       const data = await response.json()
       if (data.success) {
         setPendingRegistrations(data.data)
@@ -520,7 +511,14 @@ export default function Home() {
     } catch (error) {
       console.error("Error fetching registrations:", error)
     }
-  }
+  }, [currentUser])
+
+  // Fetch pending registrations for super admin
+  useEffect(() => {
+    if (currentUser?.role === "super_admin") {
+      fetchPendingRegistrations()
+    }
+  }, [currentUser, fetchPendingRegistrations])
 
   const handleApproveRegistration = async (userId: string, action: "approve" | "reject", rejectionReason?: string) => {
     try {
@@ -571,7 +569,7 @@ export default function Home() {
       if (data.success && data.data) {
         const user = data.data
         // Check if user is approved (for centre admins)
-        if (user.role === 'centre_admin' && user.status !== 'approved') {
+        if (user.role === 'centre_admin' && user.status && user.status !== 'approved') {
           if (user.status === 'pending') {
             alert('Your registration is pending approval. Please wait for super admin approval.')
             return
@@ -580,27 +578,14 @@ export default function Home() {
             return
           }
         }
-        setCurrentUser(user)
-        localStorage.setItem("nrcms_current_user", JSON.stringify(user))
-      } else {
-        // Fallback to hardcoded users for demo (only if no password required)
-        const hardcodedUser = ADMIN_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase())
-        if (hardcodedUser) {
-          setCurrentUser(hardcodedUser)
-          localStorage.setItem("nrcms_current_user", JSON.stringify(hardcodedUser))
-        } else {
-          alert(data.error || "Invalid email or password!")
-        }
+      setCurrentUser(user)
+      localStorage.setItem("nrcms_current_user", JSON.stringify(user))
+    } else {
+        alert(data.error || "Invalid email or password!")
       }
     } catch (error) {
-      // Fallback to hardcoded users if API fails (only for demo)
-      const hardcodedUser = ADMIN_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase())
-      if (hardcodedUser) {
-        setCurrentUser(hardcodedUser)
-        localStorage.setItem("nrcms_current_user", JSON.stringify(hardcodedUser))
-      } else {
-        alert("Invalid email or password!")
-      }
+      console.error("Login error:", error)
+      alert("Login failed. Please check your connection and try again.")
     }
   }
 
@@ -824,8 +809,8 @@ export default function Home() {
     }
 
     try {
-      const age = calculateAge(formData.dob)
-      const patientData = {
+      const age = calculateAge((formData.dob as string) || "")
+      const patientData: Record<string, unknown> = {
         ...formData,
         age,
         role: currentUser?.role,
@@ -1093,7 +1078,7 @@ export default function Home() {
           <label>Centre Name *</label>
           <input
             type="text"
-            value={formData.name || centre?.name || ""}
+            value={(formData.name as string) || centre?.name || ""}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             required
           />
@@ -1101,7 +1086,7 @@ export default function Home() {
         <div className="form-group">
           <label>State *</label>
           <select
-            value={formData.state || centre?.state || ""}
+            value={(formData.state as string) || centre?.state || ""}
             onChange={(e) => setFormData({ ...formData, state: e.target.value })}
             required
           >
@@ -1119,7 +1104,7 @@ export default function Home() {
           <label>City *</label>
           <input
             type="text"
-            value={formData.city || centre?.city || ""}
+            value={(formData.city as string) || centre?.city || ""}
             onChange={(e) => setFormData({ ...formData, city: e.target.value })}
             required
           />
@@ -1128,7 +1113,7 @@ export default function Home() {
           <label>Capacity *</label>
           <input
             type="number"
-            value={formData.capacity || centre?.capacity || ""}
+            value={(formData.capacity as number) || centre?.capacity || ""}
             onChange={(e) => setFormData({ ...formData, capacity: Number.parseInt(e.target.value) })}
             required
           />
@@ -1137,7 +1122,7 @@ export default function Home() {
       <div className="form-group">
         <label>Address *</label>
         <textarea
-          value={formData.address || centre?.address || ""}
+            value={(formData.address as string) || centre?.address || ""}
           onChange={(e) => setFormData({ ...formData, address: e.target.value })}
           rows={2}
           required
@@ -1148,7 +1133,7 @@ export default function Home() {
           <label>Phone *</label>
           <input
             type="tel"
-            value={formData.phone || centre?.phone || ""}
+            value={(formData.phone as string) || centre?.phone || ""}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             required
           />
@@ -1157,7 +1142,7 @@ export default function Home() {
           <label>Email *</label>
           <input
             type="email"
-            value={formData.email || centre?.email || ""}
+            value={(formData.email as string) || centre?.email || ""}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             required
           />
@@ -1168,7 +1153,7 @@ export default function Home() {
           <label>Administrator Name *</label>
           <input
             type="text"
-            value={formData.administrator || centre?.administrator || ""}
+            value={(formData.administrator as string) || centre?.administrator || ""}
             onChange={(e) => setFormData({ ...formData, administrator: e.target.value })}
             required
           />
@@ -1177,7 +1162,7 @@ export default function Home() {
           <label>Administrator Email *</label>
           <input
             type="email"
-            value={formData.adminEmail || centre?.adminEmail || ""}
+            value={(formData.adminEmail as string) || centre?.adminEmail || ""}
             onChange={(e) => setFormData({ ...formData, adminEmail: e.target.value })}
             required
           />
@@ -1186,7 +1171,7 @@ export default function Home() {
       <div className="form-group">
         <label>Status *</label>
         <select
-          value={formData.status || centre?.status || "active"}
+          value={(formData.status as string) || centre?.status || "active"}
           onChange={(e) => setFormData({ ...formData, status: e.target.value })}
           required
         >
@@ -1229,7 +1214,7 @@ export default function Home() {
             <label>Date of Birth *</label>
             <input
               type="date"
-              value={formData.dob || patient?.dob || ""}
+              value={(formData.dob as string) || patient?.dob || ""}
               onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
               required
             />
@@ -1239,7 +1224,7 @@ export default function Home() {
           <div className="form-group">
             <label>Gender *</label>
             <select
-              value={formData.gender || patient?.gender || ""}
+              value={(formData.gender as string) || patient?.gender || ""}
               onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
               required
             >
@@ -1253,7 +1238,7 @@ export default function Home() {
             <label>Phone *</label>
             <input
               type="tel"
-              value={formData.phone || patient?.phone || ""}
+              value={(formData.phone as string) || patient?.phone || ""}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               required
             />
@@ -1262,7 +1247,7 @@ export default function Home() {
         <div className="form-group">
           <label>Address *</label>
           <textarea
-            value={formData.address || patient?.address || ""}
+            value={(formData.address as string) || patient?.address || ""}
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
             rows={2}
             required
@@ -1273,7 +1258,7 @@ export default function Home() {
             <label>Aadhar Number *</label>
             <input
               type="text"
-              value={formData.aadharNumber || patient?.aadharNumber || ""}
+              value={(formData.aadharNumber as string) || patient?.aadharNumber || ""}
               onChange={(e) => setFormData({ ...formData, aadharNumber: e.target.value })}
               placeholder="XXXX-XXXX-XXXX"
               required
@@ -1283,7 +1268,7 @@ export default function Home() {
             <label>Email</label>
             <input
               type="email"
-              value={formData.email || patient?.email || ""}
+              value={(formData.email as string) || patient?.email || ""}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
           </div>
@@ -1293,7 +1278,7 @@ export default function Home() {
             <label>Family Contact Name *</label>
             <input
               type="text"
-              value={formData.familyContactName || patient?.familyContactName || ""}
+              value={(formData.familyContactName as string) || patient?.familyContactName || ""}
               onChange={(e) => setFormData({ ...formData, familyContactName: e.target.value })}
               placeholder="Name (Relation)"
               required
@@ -1303,7 +1288,7 @@ export default function Home() {
             <label>Family Phone *</label>
             <input
               type="tel"
-              value={formData.familyContactPhone || patient?.familyContactPhone || ""}
+              value={(formData.familyContactPhone as string) || patient?.familyContactPhone || ""}
               onChange={(e) => setFormData({ ...formData, familyContactPhone: e.target.value })}
               required
             />
@@ -1313,7 +1298,7 @@ export default function Home() {
           <div className="form-group">
             <label>Addiction Type *</label>
             <select
-              value={formData.addictionType || patient?.addictionType || ""}
+              value={(formData.addictionType as string) || patient?.addictionType || ""}
               onChange={(e) => setFormData({ ...formData, addictionType: e.target.value })}
               required
             >
@@ -1328,7 +1313,7 @@ export default function Home() {
           <div className="form-group">
             <label>Centre *</label>
             <select
-              value={formData.centreId || patient?.centreId || (currentUser?.role === "centre_admin" ? currentUser.centreId : "")}
+              value={(formData.centreId as string) || patient?.centreId || (currentUser?.role === "centre_admin" ? currentUser.centreId : "") || ""}
               onChange={(e) => setFormData({ ...formData, centreId: e.target.value })}
               required
               disabled={currentUser?.role === "centre_admin"}
@@ -1352,7 +1337,7 @@ export default function Home() {
             <label>Admission Date *</label>
             <input
               type="date"
-              value={formData.admissionDate || patient?.admissionDate || ""}
+              value={(formData.admissionDate as string) || patient?.admissionDate || ""}
               onChange={(e) => setFormData({ ...formData, admissionDate: e.target.value })}
               required
             />
@@ -1396,7 +1381,7 @@ export default function Home() {
         <div className="form-group">
           <label>Centre *</label>
           <select
-            value={formData.centreId || (currentUser?.role === "centre_admin" ? currentUser.centreId : "")}
+            value={(formData.centreId as string) || (currentUser?.role === "centre_admin" ? currentUser.centreId : "") || ""}
             onChange={(e) => setFormData({ ...formData, centreId: e.target.value })}
             required
             disabled={currentUser?.role === "centre_admin"}
@@ -2230,7 +2215,7 @@ export default function Home() {
             if (!myCentre) return <p>Centre not found</p>
             // Function to open edit modal
             const openEditCentreModal = (centreToEdit: Centre) => {
-              setFormData(centreToEdit)
+              setFormData(centreToEdit as unknown as Record<string, string | number | null | undefined>)
               openModal("Edit Centre Details", <CentreForm centre={centreToEdit} />)
             }
             return (
@@ -2403,7 +2388,7 @@ export default function Home() {
                             <button
                               className="btn btn-outline btn-small"
                               onClick={() => {
-                                setFormData(c)
+                                setFormData(c as unknown as Record<string, string | number | null | undefined>)
                                 openModal("Edit Centre", <CentreForm centre={c} />)
                               }}
                             >
@@ -2519,7 +2504,7 @@ export default function Home() {
                             <button
                               className="btn btn-outline btn-small"
                               onClick={() => {
-                                setFormData(p)
+                                setFormData(p as unknown as Record<string, string | number | null | undefined>)
                                 openModal("Edit Patient", <PatientForm patient={p} />)
                               }}
                             >
@@ -2619,7 +2604,7 @@ export default function Home() {
                       <td>
                         <div className="action-buttons">
                           <button
-                            className="btn btn-outline btn-small"
+                            className={`btn btn-small ${currentUser?.role === "super_admin" ? "btn-primary" : "btn-outline"}`}
                             onClick={() => openModal(`Query: ${q.subject}`, <QueryDetails query={q} />)}
                           >
                             View
@@ -2768,7 +2753,7 @@ export default function Home() {
                       <td>
                         {reg.centreCity}, {reg.centreState}
                       </td>
-                      <td>{reg.createdAt ? formatDate(new Date(reg.createdAt as any).toISOString().split('T')[0]) : "N/A"}</td>
+                      <td>{reg.createdAt ? formatDate(new Date(reg.createdAt as string | Date).toISOString().split('T')[0]) : "N/A"}</td>
                       <td>
                         <div className="action-buttons">
                           <button

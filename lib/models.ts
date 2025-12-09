@@ -8,7 +8,7 @@ export interface User {
   role: "super_admin" | "centre_admin"
   centreId: string | null
   password?: string
-  status: "pending" | "approved" | "rejected"
+  status?: "pending" | "approved" | "rejected" // Optional - only for centre_admin
   phone?: string
   centreName?: string
   centreAddress?: string

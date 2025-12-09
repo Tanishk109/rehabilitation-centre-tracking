@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const priority = searchParams.get('priority')
 
-    let query: any = {}
+    let query: { $or?: Array<{ targetCentreId: string | null }>; status?: string; priority?: string } = {}
 
     // Filter by centreId if centre_admin
     if (role === 'centre_admin' && centreId) {

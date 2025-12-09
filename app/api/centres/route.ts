@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state')
     const search = searchParams.get('search')
 
-    let query: any = {}
+    let query: { id?: string; state?: string; $or?: Array<{ name?: { $regex: string; $options: string } }> } = {}
 
     // Filter by centreId if centre_admin
     if (role === 'centre_admin' && centreId) {

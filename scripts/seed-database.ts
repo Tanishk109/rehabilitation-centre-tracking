@@ -1,6 +1,7 @@
 // Seed script to initialize MongoDB database with initial data
 import dotenv from 'dotenv'
 import { resolve } from 'path'
+import bcrypt from 'bcryptjs'
 
 // Load environment variables
 dotenv.config({ path: resolve(__dirname, '../.env.local') })
@@ -29,6 +30,12 @@ async function seedDatabase() {
     // Seed Users
     console.log('Seeding users...')
     const usersCollection = db.collection('users')
+    
+    // Hash default password
+    const defaultPassword = 'admin123'
+    const saltRounds = 10
+    const hashedPassword = await bcrypt.hash(defaultPassword, saltRounds)
+    
     const users = [
       {
         id: "admin1",
@@ -36,6 +43,8 @@ async function seedDatabase() {
         email: "admin@rehab.gov.in",
         role: "super_admin",
         centreId: null,
+        password: hashedPassword,
+        status: "approved", // Super admin is auto-approved
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -45,6 +54,8 @@ async function seedDatabase() {
         email: "centrea@example.com",
         role: "centre_admin",
         centreId: "C001",
+        password: hashedPassword,
+        status: "approved",
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -54,6 +65,8 @@ async function seedDatabase() {
         email: "centreb@example.com",
         role: "centre_admin",
         centreId: "C002",
+        password: hashedPassword,
+        status: "approved",
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -66,6 +79,7 @@ async function seedDatabase() {
         { upsert: true }
       )
     }
+    console.log('✓ Users seeded (Default password for all: admin123)')
     console.log('✓ Users seeded')
 
     // Seed Centres

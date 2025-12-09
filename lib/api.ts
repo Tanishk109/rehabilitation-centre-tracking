@@ -35,8 +35,8 @@ export const centresAPI = {
     if (search) params.append('search', search)
     return apiRequest(`/centres?${params.toString()}`)
   },
-  create: (data: any) => apiRequest('/centres', { method: 'POST', body: JSON.stringify(data) }),
-  update: (data: any) => apiRequest('/centres', { method: 'PUT', body: JSON.stringify(data) }),
+  create: (data: Record<string, unknown>) => apiRequest('/centres', { method: 'POST', body: JSON.stringify(data) }),
+  update: (data: Record<string, unknown>) => apiRequest('/centres', { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string, role: string) => apiRequest(`/centres?id=${id}&role=${role}`, { method: 'DELETE' }),
 }
 
@@ -50,14 +50,14 @@ export const patientsAPI = {
     if (search) params.append('search', search)
     return apiRequest(`/patients?${params.toString()}`)
   },
-  create: (data: any) => apiRequest('/patients', { method: 'POST', body: JSON.stringify(data) }),
-  update: (data: any) => apiRequest('/patients', { method: 'PUT', body: JSON.stringify(data) }),
+  create: (data: Record<string, unknown>) => apiRequest('/patients', { method: 'POST', body: JSON.stringify(data) }),
+  update: (data: Record<string, unknown>) => apiRequest('/patients', { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string, role: string, centreId?: string) => {
     const params = new URLSearchParams({ id, role })
     if (centreId) params.append('centreId', centreId)
     return apiRequest(`/patients?${params.toString()}`, { method: 'DELETE' })
   },
-  addMedication: (data: any) => apiRequest('/patients', { method: 'PATCH', body: JSON.stringify(data) }),
+  addMedication: (data: Record<string, unknown>) => apiRequest('/patients', { method: 'PATCH', body: JSON.stringify(data) }),
 }
 
 // Queries API
@@ -70,9 +70,9 @@ export const queriesAPI = {
     if (priority) params.append('priority', priority)
     return apiRequest(`/queries?${params.toString()}`)
   },
-  create: (data: any) => apiRequest('/queries', { method: 'POST', body: JSON.stringify(data) }),
-  updateStatus: (data: any) => apiRequest('/queries', { method: 'PUT', body: JSON.stringify(data) }),
-  addResponse: (data: any) => apiRequest('/queries', { method: 'PATCH', body: JSON.stringify(data) }),
+  create: (data: Record<string, unknown>) => apiRequest('/queries', { method: 'POST', body: JSON.stringify(data) }),
+  updateStatus: (data: Record<string, unknown>) => apiRequest('/queries', { method: 'PUT', body: JSON.stringify(data) }),
+  addResponse: (data: Record<string, unknown>) => apiRequest('/queries', { method: 'PATCH', body: JSON.stringify(data) }),
 }
 
 // Orders API
@@ -85,14 +85,14 @@ export const ordersAPI = {
     if (priority) params.append('priority', priority)
     return apiRequest(`/orders?${params.toString()}`)
   },
-  create: (data: any) => apiRequest('/orders', { method: 'POST', body: JSON.stringify(data) }),
-  updateStatus: (data: any) => apiRequest('/orders', { method: 'PUT', body: JSON.stringify(data) }),
-  acknowledge: (data: any) => apiRequest('/orders', { method: 'PATCH', body: JSON.stringify(data) }),
+  create: (data: Record<string, unknown>) => apiRequest('/orders', { method: 'POST', body: JSON.stringify(data) }),
+  updateStatus: (data: Record<string, unknown>) => apiRequest('/orders', { method: 'PUT', body: JSON.stringify(data) }),
+  acknowledge: (data: Record<string, unknown>) => apiRequest('/orders', { method: 'PATCH', body: JSON.stringify(data) }),
 }
 
 // Users API
 export const usersAPI = {
   getByEmail: (email: string) => apiRequest(`/users?email=${encodeURIComponent(email)}`),
-  create: (data: any) => apiRequest('/users', { method: 'POST', body: JSON.stringify(data) }),
+  create: (data: Record<string, unknown>) => apiRequest('/users', { method: 'POST', body: JSON.stringify(data) }),
 }
 

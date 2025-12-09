@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const search = searchParams.get('search')
 
-    let query: any = {}
+    let query: { centreId?: string; status?: string; $or?: Array<{ name?: { $regex: string; $options: string }; id?: { $regex: string; $options: string }; aadharNumber?: { $regex: string; $options: string } }> } = {}
 
     // Filter by centreId if centre_admin
     if (role === 'centre_admin' && centreId) {

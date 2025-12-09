@@ -119,12 +119,22 @@ async function GET(request) {
         if (role === 'centre_admin' && centreId) {
             query.centreId = centreId;
         }
-        // Filter by status
-        if (status) {
+        // Filter by status (validate it's a valid status)
+        if (status && [
+            'open',
+            'in_progress',
+            'resolved',
+            'closed'
+        ].includes(status)) {
             query.status = status;
         }
-        // Filter by priority
-        if (priority) {
+        // Filter by priority (validate it's a valid priority)
+        if (priority && [
+            'low',
+            'medium',
+            'high',
+            'urgent'
+        ].includes(priority)) {
             query.priority = priority;
         }
         const queries = await queriesCollection.find(query).sort({

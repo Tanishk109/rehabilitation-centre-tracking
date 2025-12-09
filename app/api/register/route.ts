@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       id: userId,
       name,
       email: email.toLowerCase(),
-      role: 'centre_admin',
+      role: 'centre_admin' as User['role'],
       centreId: null, // Will be assigned after approval
       phone,
       password: hashedPassword,
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       centreAddress,
       centreState,
       centreCity,
-      status: 'pending',
+      status: 'pending' as User['status'],
       createdAt: new Date(),
       updatedAt: new Date(),
     }
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
     const usersCollection = db.collection<User>('users')
     
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status') || 'pending'
+    const statusParam = searchParams.get('status') || 'pending'
     const role = searchParams.get('role')
 
     // Only super admin can view registrations
@@ -100,9 +100,17 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const query: any = { status }
-    if (status === 'pending') {
-      query.role = 'centre_admin'
+    // Build query with proper types
+    const query: { status?: User['status']; role?: User['role'] } = {}
+    
+    // Validate and set status
+    if (statusParam && ['pending', 'approved', 'rejected'].includes(statusParam)) {
+      query.status = statusParam as User['status']
+    }
+    
+    // Only filter by role for pending registrations
+    if (statusParam === 'pending') {
+      query.role = 'centre_admin' as User['role']
     }
 
     const registrations = await usersCollection
@@ -181,7 +189,7 @@ export async function PUT(request: NextRequest) {
         { id: userId },
         {
           $set: {
-            status: 'approved',
+            status: 'approved' as User['status'],
             centreId: assignedCentreId,
             approvedAt: new Date(),
             approvedBy,
@@ -201,7 +209,7 @@ export async function PUT(request: NextRequest) {
         { id: userId },
         {
           $set: {
-            status: 'rejected',
+            status: 'rejected' as User['status'],
             rejectionReason: rejectionReason || 'Registration rejected by super admin',
             approvedBy,
             updatedAt: new Date(),

@@ -14,21 +14,21 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const priority = searchParams.get('priority')
 
-    let query: any = {}
+    let query: { centreId?: string; status?: Query['status']; priority?: Query['priority'] } = {}
 
     // Filter by centreId if centre_admin
     if (role === 'centre_admin' && centreId) {
       query.centreId = centreId
     }
 
-    // Filter by status
-    if (status) {
-      query.status = status
+    // Filter by status (validate it's a valid status)
+    if (status && ['open', 'in_progress', 'resolved', 'closed'].includes(status)) {
+      query.status = status as Query['status']
     }
 
-    // Filter by priority
-    if (priority) {
-      query.priority = priority
+    // Filter by priority (validate it's a valid priority)
+    if (priority && ['low', 'medium', 'high', 'urgent'].includes(priority)) {
+      query.priority = priority as Query['priority']
     }
 
     const queries = await queriesCollection.find(query).sort({ createdAt: -1 }).toArray()
@@ -172,13 +172,16 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Update status if super admin responds
-    const updateData: any = {
+    const updateData: {
+      $push: { responses: typeof newResponse }
+      $set: { updatedAt: Date; status?: Query['status'] }
+    } = {
       $push: { responses: newResponse },
       $set: { updatedAt: new Date() }
     }
 
     if (role === 'super_admin') {
-      updateData.$set.status = 'in_progress'
+      updateData.$set.status = 'in_progress' as Query['status']
     }
 
     const result = await queriesCollection.updateOne(

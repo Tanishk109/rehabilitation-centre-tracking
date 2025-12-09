@@ -47,8 +47,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Check approval status for centre admins
-    if (user.role === 'centre_admin' && user.status !== 'approved') {
+    // Check approval status for centre admins (status is optional for super_admin)
+    if (user.role === 'centre_admin' && user.status && user.status !== 'approved') {
       if (user.status === 'pending') {
         return NextResponse.json(
           { 
@@ -71,7 +71,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Remove password from response
-    const { password, ...userWithoutPassword } = user
+    const userWithoutPassword = { ...user }
+    delete userWithoutPassword.password
     
     return NextResponse.json({ success: true, data: userWithoutPassword })
   } catch (error) {

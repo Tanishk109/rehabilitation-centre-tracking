@@ -88,228 +88,147 @@ async function getDatabase() {
     return client.db('rehabilitation-centre-tracking');
 }
 }),
-"[project]/app/api/register/route.ts [app-route] (ecmascript)", ((__turbopack_context__) => {
+"[externals]/crypto [external] (crypto, cjs)", ((__turbopack_context__, module, exports) => {
+
+const mod = __turbopack_context__.x("crypto", () => require("crypto"));
+
+module.exports = mod;
+}),
+"[project]/app/api/users/route.ts [app-route] (ecmascript)", ((__turbopack_context__) => {
 "use strict";
 
 __turbopack_context__.s([
     "GET",
     ()=>GET,
     "POST",
-    ()=>POST,
-    "PUT",
-    ()=>PUT
+    ()=>POST
 ]);
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/next/server.js [app-route] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$mongodb$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/lib/mongodb.ts [app-route] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$bcryptjs$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/node_modules/bcryptjs/index.js [app-route] (ecmascript)");
 ;
 ;
+;
+async function GET(request) {
+    try {
+        const db = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$mongodb$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getDatabase"])();
+        const usersCollection = db.collection('users');
+        const { searchParams } = new URL(request.url);
+        const email = searchParams.get('email');
+        const password = searchParams.get('password');
+        if (!email) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'Email is required'
+            }, {
+                status: 400
+            });
+        }
+        const user = await usersCollection.findOne({
+            email: email.toLowerCase()
+        });
+        if (!user) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'Invalid email or password'
+            }, {
+                status: 404
+            });
+        }
+        // Verify password if provided
+        if (password) {
+            if (!user.password) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Password not set. Please use forgot password.'
+                }, {
+                    status: 401
+                });
+            }
+            const isPasswordValid = await __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$bcryptjs$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].compare(password, user.password);
+            if (!isPasswordValid) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Invalid email or password'
+                }, {
+                    status: 401
+                });
+            }
+        }
+        // Check approval status for centre admins
+        if (user.role === 'centre_admin' && user.status !== 'approved') {
+            if (user.status === 'pending') {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Your registration is pending approval. Please wait for super admin approval.',
+                    status: 'pending'
+                }, {
+                    status: 403
+                });
+            } else if (user.status === 'rejected') {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: user.rejectionReason || 'Your registration has been rejected. Please contact support.',
+                    status: 'rejected'
+                }, {
+                    status: 403
+                });
+            }
+        }
+        // Remove password from response
+        const userWithoutPassword = {
+            ...user
+        };
+        delete userWithoutPassword.password;
+        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+            success: true,
+            data: userWithoutPassword
+        });
+    } catch (error) {
+        console.error('Error fetching user:', error);
+        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+            success: false,
+            error: 'Failed to fetch user'
+        }, {
+            status: 500
+        });
+    }
+}
 async function POST(request) {
     try {
         const db = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$mongodb$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getDatabase"])();
         const usersCollection = db.collection('users');
         const body = await request.json();
-        const { email, name, phone, centreName, centreAddress, centreState, centreCity } = body;
-        // Validate required fields
-        if (!email || !name || !phone || !centreName || !centreAddress || !centreState || !centreCity) {
-            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-                success: false,
-                error: 'All fields are required'
-            }, {
-                status: 400
-            });
-        }
         // Check if user already exists
         const existingUser = await usersCollection.findOne({
-            email: email.toLowerCase()
+            email: body.email.toLowerCase()
         });
         if (existingUser) {
             return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
                 success: false,
-                error: 'Email already registered'
+                error: 'User already exists'
             }, {
                 status: 400
             });
         }
-        // Generate user ID
-        const count = await usersCollection.countDocuments();
-        const userId = `admin${String(count + 1).padStart(3, '0')}`;
-        // Create pending user
-        const newUser = {
-            id: userId,
-            name,
-            email: email.toLowerCase(),
-            role: 'centre_admin',
-            centreId: null,
-            phone,
-            centreName,
-            centreAddress,
-            centreState,
-            centreCity,
-            status: 'pending',
-            createdAt: new Date(),
-            updatedAt: new Date()
-        };
-        const result = await usersCollection.insertOne(newUser);
+        body.email = body.email.toLowerCase();
+        body.createdAt = new Date();
+        body.updatedAt = new Date();
+        const result = await usersCollection.insertOne(body);
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
             success: true,
-            message: 'Registration submitted successfully. Please wait for super admin approval.',
             data: {
-                ...newUser,
+                ...body,
                 _id: result.insertedId
             }
         }, {
             status: 201
         });
     } catch (error) {
-        console.error('Error registering user:', error);
+        console.error('Error creating user:', error);
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
             success: false,
-            error: 'Failed to register. Please try again.'
-        }, {
-            status: 500
-        });
-    }
-}
-async function GET(request) {
-    try {
-        const db = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$mongodb$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getDatabase"])();
-        const usersCollection = db.collection('users');
-        const { searchParams } = new URL(request.url);
-        const status = searchParams.get('status') || 'pending';
-        const role = searchParams.get('role');
-        // Only super admin can view registrations
-        if (role !== 'super_admin') {
-            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-                success: false,
-                error: 'Unauthorized'
-            }, {
-                status: 403
-            });
-        }
-        const query = {
-            status
-        };
-        if (status === 'pending') {
-            query.role = 'centre_admin';
-        }
-        const registrations = await usersCollection.find(query).sort({
-            createdAt: -1
-        }).toArray();
-        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-            success: true,
-            data: registrations
-        });
-    } catch (error) {
-        console.error('Error fetching registrations:', error);
-        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-            success: false,
-            error: 'Failed to fetch registrations'
-        }, {
-            status: 500
-        });
-    }
-}
-async function PUT(request) {
-    try {
-        const db = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$mongodb$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getDatabase"])();
-        const usersCollection = db.collection('users');
-        const centresCollection = db.collection('centres');
-        const body = await request.json();
-        const { userId, action, role, approvedBy, rejectionReason, centreId } = body;
-        // Only super admin can approve/reject
-        if (role !== 'super_admin') {
-            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-                success: false,
-                error: 'Unauthorized: Only super admin can approve registrations'
-            }, {
-                status: 403
-            });
-        }
-        const user = await usersCollection.findOne({
-            id: userId
-        });
-        if (!user) {
-            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-                success: false,
-                error: 'User not found'
-            }, {
-                status: 404
-            });
-        }
-        if (action === 'approve') {
-            // Create centre if not exists
-            let assignedCentreId = centreId;
-            if (!assignedCentreId) {
-                // Generate centre ID
-                const stateCode = user.centreState?.substring(0, 2).toUpperCase() || 'XX';
-                const centreCount = await centresCollection.countDocuments();
-                assignedCentreId = `C${stateCode}${String(centreCount + 1).padStart(3, '0')}`;
-                // Create centre
-                const newCentre = {
-                    id: assignedCentreId,
-                    name: user.centreName,
-                    state: user.centreState,
-                    city: user.centreCity,
-                    address: user.centreAddress,
-                    phone: user.phone || '',
-                    email: user.email,
-                    capacity: 100,
-                    administrator: user.name,
-                    adminEmail: user.email,
-                    status: 'active',
-                    createdAt: new Date().toISOString().split('T')[0],
-                    updatedAt: new Date()
-                };
-                await centresCollection.insertOne(newCentre);
-            }
-            // Update user status
-            await usersCollection.updateOne({
-                id: userId
-            }, {
-                $set: {
-                    status: 'approved',
-                    centreId: assignedCentreId,
-                    approvedAt: new Date(),
-                    approvedBy,
-                    updatedAt: new Date()
-                }
-            });
-            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-                success: true,
-                message: 'Registration approved successfully',
-                data: {
-                    centreId: assignedCentreId
-                }
-            });
-        } else if (action === 'reject') {
-            // Update user status
-            await usersCollection.updateOne({
-                id: userId
-            }, {
-                $set: {
-                    status: 'rejected',
-                    rejectionReason: rejectionReason || 'Registration rejected by super admin',
-                    approvedBy,
-                    updatedAt: new Date()
-                }
-            });
-            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-                success: true,
-                message: 'Registration rejected'
-            });
-        } else {
-            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-                success: false,
-                error: 'Invalid action'
-            }, {
-                status: 400
-            });
-        }
-    } catch (error) {
-        console.error('Error processing registration:', error);
-        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-            success: false,
-            error: 'Failed to process registration'
+            error: 'Failed to create user'
         }, {
             status: 500
         });
@@ -318,4 +237,4 @@ async function PUT(request) {
 }),
 ];
 
-//# sourceMappingURL=%5Broot-of-the-server%5D__8cc20f8a._.js.map
+//# sourceMappingURL=%5Broot-of-the-server%5D__120839b6._.js.map
