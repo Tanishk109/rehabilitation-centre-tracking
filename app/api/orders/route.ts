@@ -72,10 +72,33 @@ export async function POST(request: NextRequest) {
       body.targetCentreName = 'All Centres'
     }
 
-    // Generate ID if not provided
+    // Generate unique ID if not provided
     if (!body.id) {
-      const count = await ordersCollection.countDocuments()
-      body.id = `ORD${String(count + 1).padStart(3, '0')}`
+      // Find the highest existing order number to ensure uniqueness
+      const existingOrders = await ordersCollection
+        .find({ id: { $regex: /^ORD\d+$/ } })
+        .sort({ id: -1 })
+        .limit(1)
+        .toArray()
+      
+      let nextNumber = 1
+      if (existingOrders.length > 0 && existingOrders[0].id) {
+        // Extract number from existing ID (e.g., ORD00123 -> 123)
+        const match = existingOrders[0].id.match(/\d+/)
+        if (match) {
+          nextNumber = parseInt(match[0], 10) + 1
+        }
+      }
+      
+      // Format as ORD-XXXXX (5 digits for better scalability)
+      body.id = `ORD-${String(nextNumber).padStart(5, '0')}`
+      
+      // Double-check uniqueness (in case of race conditions)
+      const existing = await ordersCollection.findOne({ id: body.id })
+      if (existing) {
+        // If exists, increment and try again
+        body.id = `ORD-${String(nextNumber + 1).padStart(5, '0')}`
+      }
     }
 
     body.issuedBy = issuedBy || 'Unknown'

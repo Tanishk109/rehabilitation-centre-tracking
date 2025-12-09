@@ -62,10 +62,33 @@ export async function POST(request: NextRequest) {
     const centre = await centresCollection.findOne({ id: body.centreId })
     body.centreName = centre?.name || ''
 
-    // Generate ID if not provided
+    // Generate unique ID if not provided
     if (!body.id) {
-      const count = await queriesCollection.countDocuments()
-      body.id = `QRY${String(count + 1).padStart(3, '0')}`
+      // Find the highest existing query number to ensure uniqueness
+      const existingQueries = await queriesCollection
+        .find({ id: { $regex: /^QRY-?\d+$/ } })
+        .sort({ id: -1 })
+        .limit(1)
+        .toArray()
+      
+      let nextNumber = 1
+      if (existingQueries.length > 0 && existingQueries[0].id) {
+        // Extract number from existing ID (e.g., QRY-00123 -> 123 or QRY123 -> 123)
+        const match = existingQueries[0].id.match(/\d+/)
+        if (match) {
+          nextNumber = parseInt(match[0], 10) + 1
+        }
+      }
+      
+      // Format as QRY-XXXXX (5 digits for better scalability)
+      body.id = `QRY-${String(nextNumber).padStart(5, '0')}`
+      
+      // Double-check uniqueness (in case of race conditions)
+      const existing = await queriesCollection.findOne({ id: body.id })
+      if (existing) {
+        // If exists, increment and try again
+        body.id = `QRY-${String(nextNumber + 1).padStart(5, '0')}`
+      }
     }
 
     body.createdBy = createdBy || 'Unknown'

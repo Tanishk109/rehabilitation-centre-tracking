@@ -95,17 +95,41 @@ export async function PUT(request: NextRequest) {
     const centresCollection = db.collection<Centre>('centres')
     
     const body = await request.json()
-    const { id, role } = body
+    const { id, role, centreId: userCentreId } = body
 
-    // Only super_admin can update centres
-    if (role !== 'super_admin') {
+    // Check if centre exists
+    const existingCentre = await centresCollection.findOne({ id })
+    if (!existingCentre) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized: Only super admin can update centres' },
+        { success: false, error: 'Centre not found' },
+        { status: 404 }
+      )
+    }
+
+    // Centre admin can only update their own centre
+    if (role === 'centre_admin') {
+      if (id !== userCentreId) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized: You can only update your own centre' },
+          { status: 403 }
+        )
+      }
+    } else if (role !== 'super_admin') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Only super admin or centre admin can update centres' },
         { status: 403 }
       )
     }
 
-    const { id: centreId, role: _, ...updateData } = body
+    // Centre admin cannot change certain fields (id, state - which affects id generation)
+    const { id: centreId, role: _, centreId: __, ...updateData } = body
+    
+    // Remove fields that centre admin shouldn't be able to change
+    if (role === 'centre_admin') {
+      delete updateData.id
+      delete updateData.state // State affects centre ID, so prevent changes
+    }
+    
     updateData.updatedAt = new Date()
 
     const result = await centresCollection.updateOne(

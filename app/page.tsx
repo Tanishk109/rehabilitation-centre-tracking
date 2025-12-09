@@ -403,22 +403,58 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // Update profileData when user prop changes
+  useEffect(() => {
+    setProfileData({
+      name: user.name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      dob: user.dob || "",
+      age: user.age || "",
+      aadharNumber: user.aadharNumber || "",
+      address: user.address || "",
+    })
+  }, [user])
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
 
     try {
       // Calculate age if DOB is provided
-      let finalData = { ...profileData }
-      if (finalData.dob) {
+      let finalData: Record<string, string | number | undefined> = {}
+      
+      // Only include fields that have non-empty values
+      if (profileData.name && profileData.name.trim() !== '') {
+        finalData.name = profileData.name.trim()
+      }
+      if (profileData.phone && profileData.phone.trim() !== '') {
+        finalData.phone = profileData.phone.trim()
+      }
+      if (profileData.dob && profileData.dob.trim() !== '') {
+        finalData.dob = profileData.dob.trim()
+        // Calculate age from DOB
         const today = new Date()
-        const birthDate = new Date(finalData.dob)
-        let age = today.getFullYear() - birthDate.getFullYear()
-        const monthDiff = today.getMonth() - birthDate.getMonth()
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-          age--
+        const birthDate = new Date(profileData.dob)
+        if (!isNaN(birthDate.getTime())) {
+          let age = today.getFullYear() - birthDate.getFullYear()
+          const monthDiff = today.getMonth() - birthDate.getMonth()
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--
+          }
+          finalData.age = age
         }
-        finalData.age = age
+      } else if (profileData.age && (typeof profileData.age === 'number' || (typeof profileData.age === 'string' && profileData.age.trim() !== ''))) {
+        const ageNum = typeof profileData.age === 'number' ? profileData.age : parseInt(profileData.age)
+        if (!isNaN(ageNum) && ageNum > 0) {
+          finalData.age = ageNum
+        }
+      }
+      if (profileData.aadharNumber && profileData.aadharNumber.trim() !== '') {
+        finalData.aadharNumber = profileData.aadharNumber.trim()
+      }
+      if (profileData.address && profileData.address.trim() !== '') {
+        finalData.address = profileData.address.trim()
       }
 
       const response = await usersAPI.updateProfile({
@@ -642,8 +678,10 @@ export default function Home() {
   const [statusFilter, setStatusFilter] = useState("")
   const [queryStatusFilter, setQueryStatusFilter] = useState("")
   const [queryPriorityFilter, setQueryPriorityFilter] = useState("")
+  const [querySearch, setQuerySearch] = useState("")
   const [orderStatusFilter, setOrderStatusFilter] = useState("")
   const [orderPriorityFilter, setOrderPriorityFilter] = useState("")
+  const [orderSearch, setOrderSearch] = useState("")
 
   // Form states - using Record for flexible form handling
   const [formData, setFormData] = useState<Record<string, string | number | null | undefined>>({})
@@ -910,6 +948,14 @@ export default function Home() {
     if (queryPriorityFilter) {
       filtered = filtered.filter((q) => q.priority === queryPriorityFilter)
     }
+    if (querySearch) {
+      filtered = filtered.filter(
+        (q) =>
+          q.id.toLowerCase().includes(querySearch.toLowerCase()) ||
+          q.subject.toLowerCase().includes(querySearch.toLowerCase()) ||
+          (q.centreName && q.centreName.toLowerCase().includes(querySearch.toLowerCase()))
+      )
+    }
     return filtered
   }
 
@@ -923,6 +969,14 @@ export default function Home() {
     }
     if (orderPriorityFilter) {
       filtered = filtered.filter((o) => o.priority === orderPriorityFilter)
+    }
+    if (orderSearch) {
+      filtered = filtered.filter(
+        (o) =>
+          o.id.toLowerCase().includes(orderSearch.toLowerCase()) ||
+          o.subject.toLowerCase().includes(orderSearch.toLowerCase()) ||
+          (o.targetCentreName && o.targetCentreName.toLowerCase().includes(orderSearch.toLowerCase()))
+      )
     }
     return filtered
   }
@@ -981,28 +1035,39 @@ export default function Home() {
 
   // CRUD Operations
   const saveCentre = async (isEdit: boolean, centreId?: string) => {
-    // Access control: Only super admin can create/edit centres
-    if (currentUser?.role !== "super_admin") {
+    // Access control: Centre admin can only update their own centre
+    if (currentUser?.role === "centre_admin") {
+      if (!isEdit || !centreId || centreId !== currentUser.centreId) {
+        alert("You can only update your own centre details!")
+        return
+      }
+    } else if (currentUser?.role !== "super_admin") {
       alert("Only super admin can manage centres!")
       return
     }
 
     try {
-    if (isEdit && centreId) {
+      if (isEdit && centreId) {
         const response = await centresAPI.update({
           ...formData,
           id: centreId,
-          role: currentUser.role,
+          role: currentUser?.role,
+          centreId: currentUser?.role === "centre_admin" ? currentUser.centreId : centreId,
         })
         if (response.success) {
           await fetchAllData() // Refresh data
           alert("Centre updated successfully!")
-    } else {
+        } else {
           alert(response.error || "Failed to update centre")
         }
       } else {
+        // Only super admin can create centres
+        if (currentUser?.role !== "super_admin") {
+          alert("Only super admin can create centres!")
+          return
+        }
         const response = await centresAPI.create({
-        ...formData,
+          ...formData,
           role: currentUser.role,
         })
         if (response.success) {
@@ -1011,8 +1076,8 @@ export default function Home() {
         } else {
           alert(response.error || "Failed to create centre")
         }
-    }
-    closeModal()
+      }
+      closeModal()
     } catch (error) {
       console.error("Error saving centre:", error)
       alert("Error saving centre. Please try again.")
@@ -1061,11 +1126,17 @@ export default function Home() {
 
     try {
       const age = calculateAge((formData.dob as string) || "")
+      // Build patient data - ensure role and centreId are included
       const patientData: Record<string, unknown> = {
         ...formData,
         age,
-        role: currentUser?.role,
-        centreId: currentUser?.role === "centre_admin" ? currentUser.centreId : formData.centreId,
+        role: currentUser?.role || "",
+        centreId: currentUser?.role === "centre_admin" ? currentUser.centreId : (formData.centreId as string),
+      }
+      
+      // Ensure centreId is set for centre admin
+      if (currentUser?.role === "centre_admin") {
+        patientData.centreId = currentUser.centreId
       }
 
       if (isEdit && patientId) {
@@ -1129,13 +1200,15 @@ export default function Home() {
 
     try {
       const response = await queriesAPI.create({
-      ...formData,
-      createdBy: currentUser?.name || "",
+        ...formData,
+        createdBy: currentUser?.name || "",
+        role: currentUser?.role,
+        centreId: currentUser?.role === "centre_admin" ? currentUser.centreId : formData.centreId,
       })
       if (response.success) {
         await fetchAllData() // Refresh data
         alert("Query submitted successfully!")
-    closeModal()
+        closeModal()
       } else {
         alert(response.error || "Failed to submit query")
       }
@@ -2708,6 +2781,7 @@ export default function Home() {
             <input
               type="text"
               placeholder="Search by name, ID or Aadhar..."
+              className="search-input"
               value={patientSearch}
               onChange={(e) => setPatientSearch(e.target.value)}
             />
@@ -2816,6 +2890,13 @@ export default function Home() {
             )}
           </div>
           <div className="filters">
+            <input
+              type="text"
+              placeholder="Search by Query ID, Subject or Centre..."
+              className="search-input"
+              value={querySearch}
+              onChange={(e) => setQuerySearch(e.target.value)}
+            />
             <select
               className="select-input"
               value={queryStatusFilter}
@@ -2910,6 +2991,13 @@ export default function Home() {
             )}
           </div>
           <div className="filters">
+            <input
+              type="text"
+              placeholder="Search by Order ID, Subject or Centre..."
+              className="search-input"
+              value={orderSearch}
+              onChange={(e) => setOrderSearch(e.target.value)}
+            />
             <select
               className="select-input"
               value={orderStatusFilter}
