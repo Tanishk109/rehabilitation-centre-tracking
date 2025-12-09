@@ -8,8 +8,17 @@ export interface User {
   role: "super_admin" | "centre_admin"
   centreId: string | null
   password?: string
+  status: "pending" | "approved" | "rejected"
+  phone?: string
+  centreName?: string
+  centreAddress?: string
+  centreState?: string
+  centreCity?: string
+  rejectionReason?: string
   createdAt?: Date
   updatedAt?: Date
+  approvedAt?: Date
+  approvedBy?: string
 }
 
 export interface Centre {

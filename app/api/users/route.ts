@@ -27,6 +27,29 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Check approval status for centre admins
+    if (user.role === 'centre_admin' && user.status !== 'approved') {
+      if (user.status === 'pending') {
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'Your registration is pending approval. Please wait for super admin approval.',
+            status: 'pending'
+          },
+          { status: 403 }
+        )
+      } else if (user.status === 'rejected') {
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: user.rejectionReason || 'Your registration has been rejected. Please contact support.',
+            status: 'rejected'
+          },
+          { status: 403 }
+        )
+      }
+    }
+
     // Remove password from response
     const { password, ...userWithoutPassword } = user
     

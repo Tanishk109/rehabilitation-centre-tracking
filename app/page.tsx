@@ -11,6 +11,13 @@ interface User {
   email: string
   role: "super_admin" | "centre_admin"
   centreId: string | null
+  status?: "pending" | "approved" | "rejected"
+  phone?: string
+  centreName?: string
+  centreAddress?: string
+  centreState?: string
+  centreCity?: string
+  rejectionReason?: string
 }
 
 interface Centre {
@@ -386,6 +393,7 @@ export default function Home() {
   const [patients, setPatients] = useState<Patient[]>(initialPatients)
   const [queries, setQueries] = useState<Query[]>(initialQueries)
   const [orders, setOrders] = useState<Order[]>(initialOrders)
+  const [pendingRegistrations, setPendingRegistrations] = useState<User[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [modalTitle, setModalTitle] = useState("")
   const [modalContent, setModalContent] = useState<React.ReactNode>(null)
@@ -411,16 +419,98 @@ export default function Home() {
     }
   }, [])
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Fetch pending registrations for super admin
+  useEffect(() => {
+    if (currentUser?.role === "super_admin") {
+      fetchPendingRegistrations()
+    }
+  }, [currentUser])
+
+  const fetchPendingRegistrations = async () => {
+    try {
+      const response = await fetch(`/api/register?status=pending&role=${currentUser?.role}`)
+      const data = await response.json()
+      if (data.success) {
+        setPendingRegistrations(data.data)
+      }
+    } catch (error) {
+      console.error("Error fetching registrations:", error)
+    }
+  }
+
+  const handleApproveRegistration = async (userId: string, action: "approve" | "reject", rejectionReason?: string) => {
+    try {
+      const response = await fetch("/api/register", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          action,
+          role: currentUser?.role,
+          approvedBy: currentUser?.name,
+          rejectionReason,
+        }),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        alert(action === "approve" ? "Registration approved successfully!" : "Registration rejected.")
+        fetchPendingRegistrations()
+        // Refresh centres list if approved
+        if (action === "approve") {
+          window.location.reload()
+        }
+      } else {
+        alert(data.error || "Failed to process registration")
+      }
+    } catch (error) {
+      alert("Error processing registration")
+    }
+  }
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     const form = e.target as HTMLFormElement
     const email = (form.elements.namedItem("email") as HTMLInputElement).value
-    const user = ADMIN_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase())
-    if (user) {
-      setCurrentUser(user)
-      localStorage.setItem("nrcms_current_user", JSON.stringify(user))
-    } else {
-      alert("Invalid credentials!")
+
+    try {
+      // Try to fetch user from database
+      const response = await fetch(`/api/users?email=${encodeURIComponent(email)}`)
+      const data = await response.json()
+
+      if (data.success && data.data) {
+        const user = data.data
+        // Check if user is approved (for centre admins)
+        if (user.role === 'centre_admin' && user.status !== 'approved') {
+          if (user.status === 'pending') {
+            alert('Your registration is pending approval. Please wait for super admin approval.')
+            return
+          } else if (user.status === 'rejected') {
+            alert(user.rejectionReason || 'Your registration has been rejected. Please contact support.')
+            return
+          }
+        }
+        setCurrentUser(user)
+        localStorage.setItem("nrcms_current_user", JSON.stringify(user))
+      } else {
+        // Fallback to hardcoded users for demo
+        const hardcodedUser = ADMIN_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase())
+        if (hardcodedUser) {
+          setCurrentUser(hardcodedUser)
+          localStorage.setItem("nrcms_current_user", JSON.stringify(hardcodedUser))
+        } else {
+          alert(data.error || "Invalid credentials!")
+        }
+      }
+    } catch (error) {
+      // Fallback to hardcoded users if API fails
+      const hardcodedUser = ADMIN_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase())
+      if (hardcodedUser) {
+        setCurrentUser(hardcodedUser)
+        localStorage.setItem("nrcms_current_user", JSON.stringify(hardcodedUser))
+      } else {
+        alert("Invalid credentials!")
+      }
     }
   }
 
@@ -1687,6 +1777,20 @@ export default function Home() {
               <p>Centre Admin: centrea@example.com</p>
               <p>(Any password)</p>
             </div>
+            <div style={{ textAlign: "center", marginTop: "20px", paddingTop: "20px", borderTop: "1px solid var(--gray-200)" }}>
+              <p style={{ color: "var(--gray-600)", marginBottom: "10px" }}>New Centre Admin?</p>
+              <a
+                href="/register"
+                style={{
+                  color: "var(--navy-blue)",
+                  textDecoration: "none",
+                  fontWeight: "600",
+                  fontSize: "0.95rem",
+                }}
+              >
+                Register Your Centre →
+              </a>
+            </div>
           </form>
         </div>
       </div>
@@ -1780,6 +1884,30 @@ export default function Home() {
             >
               Orders
             </a>
+            {currentUser?.role === "super_admin" && (
+              <a
+                href="#"
+                className={`nav-link ${currentPage === "approvals" ? "active" : ""}`}
+                onClick={(e) => {
+                  e.preventDefault()
+                  setCurrentPage("approvals")
+                }}
+              >
+                Approvals
+                {pendingRegistrations.length > 0 && (
+                  <span style={{
+                    marginLeft: "8px",
+                    background: "var(--red)",
+                    color: "white",
+                    borderRadius: "50%",
+                    padding: "2px 6px",
+                    fontSize: "0.75rem",
+                  }}>
+                    {pendingRegistrations.length}
+                  </span>
+                )}
+              </a>
+            )}
           </nav>
         </div>
         <div className="header-right">
@@ -2390,6 +2518,137 @@ export default function Home() {
                             onClick={() => openModal(`Order: ${o.subject}`, <OrderDetails order={o} />)}
                           >
                             View
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Approvals Page - Super Admin Only */}
+      {currentPage === "approvals" && currentUser?.role === "super_admin" && (
+        <div className="page-content">
+          <div className="page-header">
+            <h1>Registration Approvals</h1>
+            <p>Review and approve centre admin registration requests</p>
+          </div>
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Centre Name</th>
+                  <th>Location</th>
+                  <th>Submitted</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingRegistrations.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="empty-state">
+                      No pending registrations
+                    </td>
+                  </tr>
+                ) : (
+                  pendingRegistrations.map((reg) => (
+                    <tr key={reg.id}>
+                      <td>
+                        <strong>{reg.name}</strong>
+                      </td>
+                      <td>{reg.email}</td>
+                      <td>{reg.phone || "N/A"}</td>
+                      <td>{reg.centreName}</td>
+                      <td>
+                        {reg.centreCity}, {reg.centreState}
+                      </td>
+                      <td>{reg.createdAt ? formatDate(new Date(reg.createdAt).toISOString().split('T')[0]) : "N/A"}</td>
+                      <td>
+                        <div className="action-buttons">
+                          <button
+                            className="btn btn-outline btn-small"
+                            onClick={() =>
+                              openModal(
+                                `Registration Details: ${reg.name}`,
+                                <div className="detail-section">
+                                  <div className="detail-grid">
+                                    <div className="detail-item">
+                                      <label>Name</label>
+                                      <span>{reg.name}</span>
+                                    </div>
+                                    <div className="detail-item">
+                                      <label>Email</label>
+                                      <span>{reg.email}</span>
+                                    </div>
+                                    <div className="detail-item">
+                                      <label>Phone</label>
+                                      <span>{reg.phone || "N/A"}</span>
+                                    </div>
+                                    <div className="detail-item">
+                                      <label>Centre Name</label>
+                                      <span>{reg.centreName}</span>
+                                    </div>
+                                    <div className="detail-item">
+                                      <label>State</label>
+                                      <span>{reg.centreState}</span>
+                                    </div>
+                                    <div className="detail-item">
+                                      <label>City</label>
+                                      <span>{reg.centreCity}</span>
+                                    </div>
+                                    <div className="detail-item" style={{ gridColumn: "1 / -1" }}>
+                                      <label>Address</label>
+                                      <span>{reg.centreAddress}</span>
+                                    </div>
+                                  </div>
+                                  <div className="form-actions" style={{ marginTop: "20px" }}>
+                                    <button
+                                      className="btn btn-success"
+                                      onClick={() => {
+                                        handleApproveRegistration(reg.id, "approve")
+                                        closeModal()
+                                      }}
+                                    >
+                                      ✓ Approve
+                                    </button>
+                                    <button
+                                      className="btn btn-danger"
+                                      onClick={() => {
+                                        const reason = prompt("Enter rejection reason (optional):")
+                                        handleApproveRegistration(reg.id, "reject", reason || undefined)
+                                        closeModal()
+                                      }}
+                                    >
+                                      ✗ Reject
+                                    </button>
+                                  </div>
+                                </div>
+                              )
+                            }
+                          >
+                            View
+                          </button>
+                          <button
+                            className="btn btn-success btn-small"
+                            onClick={() => handleApproveRegistration(reg.id, "approve")}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            className="btn btn-danger btn-small"
+                            onClick={() => {
+                              const reason = prompt("Enter rejection reason (optional):")
+                              handleApproveRegistration(reg.id, "reject", reason || undefined)
+                            }}
+                          >
+                            Reject
                           </button>
                         </div>
                       </td>
