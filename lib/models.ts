@@ -15,6 +15,8 @@ export interface User {
   centreState?: string
   centreCity?: string
   rejectionReason?: string
+  resetPasswordToken?: string
+  resetPasswordExpiry?: Date
   createdAt?: Date
   updatedAt?: Date
   approvedAt?: Date

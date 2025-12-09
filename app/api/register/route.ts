@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models'
+import bcrypt from 'bcryptjs'
 
 // POST - Register a new centre admin
 export async function POST(request: NextRequest) {
@@ -9,12 +10,20 @@ export async function POST(request: NextRequest) {
     const usersCollection = db.collection<User>('users')
     
     const body = await request.json()
-    const { email, name, phone, centreName, centreAddress, centreState, centreCity } = body
+    const { email, name, phone, password, centreName, centreAddress, centreState, centreCity } = body
 
     // Validate required fields
-    if (!email || !name || !phone || !centreName || !centreAddress || !centreState || !centreCity) {
+    if (!email || !name || !phone || !password || !centreName || !centreAddress || !centreState || !centreCity) {
       return NextResponse.json(
         { success: false, error: 'All fields are required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate password strength
+    if (password.length < 8) {
+      return NextResponse.json(
+        { success: false, error: 'Password must be at least 8 characters long' },
         { status: 400 }
       )
     }
@@ -32,6 +41,10 @@ export async function POST(request: NextRequest) {
     const count = await usersCollection.countDocuments()
     const userId = `admin${String(count + 1).padStart(3, '0')}`
 
+    // Hash password
+    const saltRounds = 10
+    const hashedPassword = await bcrypt.hash(password, saltRounds)
+
     // Create pending user
     const newUser: User = {
       id: userId,
@@ -40,6 +53,7 @@ export async function POST(request: NextRequest) {
       role: 'centre_admin',
       centreId: null, // Will be assigned after approval
       phone,
+      password: hashedPassword,
       centreName,
       centreAddress,
       centreState,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models'
+import bcrypt from 'bcryptjs'
 
 // GET - Fetch user by email (for login)
 export async function GET(request: NextRequest) {
@@ -10,6 +11,7 @@ export async function GET(request: NextRequest) {
     
     const { searchParams } = new URL(request.url)
     const email = searchParams.get('email')
+    const password = searchParams.get('password')
 
     if (!email) {
       return NextResponse.json(
@@ -22,9 +24,27 @@ export async function GET(request: NextRequest) {
     
     if (!user) {
       return NextResponse.json(
-        { success: false, error: 'User not found' },
+        { success: false, error: 'Invalid email or password' },
         { status: 404 }
       )
+    }
+
+    // Verify password if provided
+    if (password) {
+      if (!user.password) {
+        return NextResponse.json(
+          { success: false, error: 'Password not set. Please use forgot password.' },
+          { status: 401 }
+        )
+      }
+      
+      const isPasswordValid = await bcrypt.compare(password, user.password)
+      if (!isPasswordValid) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid email or password' },
+          { status: 401 }
+        )
+      }
     }
 
     // Check approval status for centre admins

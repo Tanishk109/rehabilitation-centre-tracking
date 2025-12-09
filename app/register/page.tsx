@@ -9,6 +9,8 @@ export default function RegisterPage() {
     name: "",
     email: "",
     phone: "",
+    password: "",
+    confirmPassword: "",
     centreName: "",
     centreAddress: "",
     centreState: "",
@@ -17,6 +19,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
+  const [passwordErrors, setPasswordErrors] = useState<string[]>([])
 
   const INDIAN_STATES = [
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
@@ -27,19 +30,70 @@ export default function RegisterPage() {
     "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi",
   ]
 
+  const validatePassword = (password: string): string[] => {
+    const errors: string[] = []
+    if (password.length < 8) {
+      errors.push("Password must be at least 8 characters long")
+    }
+    if (!/[A-Z]/.test(password)) {
+      errors.push("Password must contain at least one uppercase letter")
+    }
+    if (!/[a-z]/.test(password)) {
+      errors.push("Password must contain at least one lowercase letter")
+    }
+    if (!/[0-9]/.test(password)) {
+      errors.push("Password must contain at least one number")
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      errors.push("Password must contain at least one special character")
+    }
+    return errors
+  }
+
+  const handlePasswordChange = (value: string) => {
+    setFormData({ ...formData, password: value })
+    if (value) {
+      setPasswordErrors(validatePassword(value))
+    } else {
+      setPasswordErrors([])
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError("")
     setSuccess(false)
 
+    // Validate password
+    if (!formData.password) {
+      setError("Password is required")
+      setLoading(false)
+      return
+    }
+
+    const passwordValidationErrors = validatePassword(formData.password)
+    if (passwordValidationErrors.length > 0) {
+      setError("Please fix password requirements")
+      setLoading(false)
+      return
+    }
+
+    // Check password match
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match")
+      setLoading(false)
+      return
+    }
+
     try {
+      const { confirmPassword, ...submitData } = formData
       const response = await fetch("/api/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       })
 
       const data = await response.json()
@@ -147,6 +201,71 @@ export default function RegisterPage() {
               required
               placeholder="Enter your phone number"
             />
+          </div>
+
+          <div className="form-group">
+            <label>Password *</label>
+            <input
+              type="password"
+              value={formData.password}
+              onChange={(e) => handlePasswordChange(e.target.value)}
+              required
+              placeholder="Enter a strong password"
+            />
+            {passwordErrors.length > 0 && (
+              <div style={{
+                marginTop: "8px",
+                fontSize: "0.85rem",
+                color: "var(--red)",
+              }}>
+                <div style={{ fontWeight: "bold", marginBottom: "4px" }}>Password must:</div>
+                <ul style={{ margin: 0, paddingLeft: "20px" }}>
+                  {passwordErrors.map((err, idx) => (
+                    <li key={idx}>
+                      {err}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {formData.password && passwordErrors.length === 0 && (
+              <div style={{
+                marginTop: "8px",
+                fontSize: "0.85rem",
+                color: "var(--green-india)",
+              }}>
+                ✓ Password meets all requirements
+              </div>
+            )}
+          </div>
+
+          <div className="form-group">
+            <label>Confirm Password *</label>
+            <input
+              type="password"
+              value={formData.confirmPassword}
+              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+              required
+              placeholder="Confirm your password"
+            />
+            {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+              <div style={{
+                marginTop: "8px",
+                fontSize: "0.85rem",
+                color: "var(--red)",
+              }}>
+                Passwords do not match
+              </div>
+            )}
+            {formData.confirmPassword && formData.password === formData.confirmPassword && (
+              <div style={{
+                marginTop: "8px",
+                fontSize: "0.85rem",
+                color: "var(--green-india)",
+              }}>
+                ✓ Passwords match
+              </div>
+            )}
           </div>
 
           <div className="form-group">

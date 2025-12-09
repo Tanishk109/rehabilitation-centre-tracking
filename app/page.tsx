@@ -2,7 +2,8 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { centresAPI, patientsAPI, queriesAPI, ordersAPI } from "@/lib/api"
 
 // Types
 interface User {
@@ -18,6 +19,7 @@ interface User {
   centreState?: string
   centreCity?: string
   rejectionReason?: string
+  createdAt?: Date | string
 }
 
 interface Centre {
@@ -389,11 +391,12 @@ const formatStatus = (status: string) => {
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [currentPage, setCurrentPage] = useState("dashboard")
-  const [centres, setCentres] = useState<Centre[]>(initialCentres)
-  const [patients, setPatients] = useState<Patient[]>(initialPatients)
-  const [queries, setQueries] = useState<Query[]>(initialQueries)
-  const [orders, setOrders] = useState<Order[]>(initialOrders)
+  const [centres, setCentres] = useState<Centre[]>([])
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [queries, setQueries] = useState<Query[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
   const [pendingRegistrations, setPendingRegistrations] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [modalTitle, setModalTitle] = useState("")
   const [modalContent, setModalContent] = useState<React.ReactNode>(null)
@@ -418,6 +421,87 @@ export default function Home() {
       setCurrentUser(JSON.parse(savedUser))
     }
   }, [])
+
+  const fetchAllData = useCallback(async () => {
+    if (!currentUser) return
+    
+    setLoading(true)
+    try {
+      // Fetch all data in parallel (without filters - filters applied client-side)
+      const [centresResponse, patientsResponse, queriesResponse, ordersResponse] = await Promise.all([
+        centresAPI.getAll(
+          currentUser.role,
+          currentUser.centreId || undefined,
+          undefined, // Fetch all, filter client-side
+          undefined
+        ),
+        patientsAPI.getAll(
+          currentUser.role,
+          currentUser.centreId || undefined,
+          undefined, // Fetch all, filter client-side
+          undefined
+        ),
+        queriesAPI.getAll(
+          currentUser.role,
+          currentUser.centreId || undefined,
+          undefined, // Fetch all, filter client-side
+          undefined
+        ),
+        ordersAPI.getAll(
+          currentUser.role,
+          currentUser.centreId || undefined,
+          undefined, // Fetch all, filter client-side
+          undefined
+        ),
+      ])
+
+      if (centresResponse.success) {
+        setCentres(centresResponse.data || [])
+      }
+
+      if (patientsResponse.success) {
+        setPatients(patientsResponse.data || [])
+      }
+
+      if (queriesResponse.success) {
+        setQueries(queriesResponse.data || [])
+      }
+
+      if (ordersResponse.success) {
+        setOrders(ordersResponse.data || [])
+      }
+
+      // Fetch pending registrations for super admin
+      if (currentUser.role === "super_admin") {
+        fetchPendingRegistrations()
+      }
+    } catch (error) {
+      console.error("Error fetching data:", error)
+      // Fallback to initial data if API fails
+      setCentres(initialCentres)
+      setPatients(initialPatients)
+      setQueries(initialQueries)
+      setOrders(initialOrders)
+    } finally {
+      setLoading(false)
+    }
+  }, [currentUser])
+
+  // Fetch all data from database when user logs in
+  useEffect(() => {
+    if (currentUser) {
+      fetchAllData()
+    } else {
+      setLoading(false)
+    }
+  }, [currentUser, fetchAllData])
+
+  // Refresh data when page changes (to ensure latest data)
+  useEffect(() => {
+    if (currentUser && currentPage) {
+      fetchAllData()
+    }
+  }, [currentPage, currentUser, fetchAllData])
 
   // Fetch pending registrations for super admin
   useEffect(() => {
@@ -472,10 +556,16 @@ export default function Home() {
     e.preventDefault()
     const form = e.target as HTMLFormElement
     const email = (form.elements.namedItem("email") as HTMLInputElement).value
+    const password = (form.elements.namedItem("password") as HTMLInputElement).value
+
+    if (!password) {
+      alert("Password is required")
+      return
+    }
 
     try {
-      // Try to fetch user from database
-      const response = await fetch(`/api/users?email=${encodeURIComponent(email)}`)
+      // Try to fetch user from database with password verification
+      const response = await fetch(`/api/users?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`)
       const data = await response.json()
 
       if (data.success && data.data) {
@@ -493,23 +583,23 @@ export default function Home() {
         setCurrentUser(user)
         localStorage.setItem("nrcms_current_user", JSON.stringify(user))
       } else {
-        // Fallback to hardcoded users for demo
+        // Fallback to hardcoded users for demo (only if no password required)
         const hardcodedUser = ADMIN_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase())
         if (hardcodedUser) {
           setCurrentUser(hardcodedUser)
           localStorage.setItem("nrcms_current_user", JSON.stringify(hardcodedUser))
         } else {
-          alert(data.error || "Invalid credentials!")
+          alert(data.error || "Invalid email or password!")
         }
       }
     } catch (error) {
-      // Fallback to hardcoded users if API fails
+      // Fallback to hardcoded users if API fails (only for demo)
       const hardcodedUser = ADMIN_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase())
       if (hardcodedUser) {
         setCurrentUser(hardcodedUser)
         localStorage.setItem("nrcms_current_user", JSON.stringify(hardcodedUser))
       } else {
-        alert("Invalid credentials!")
+        alert("Invalid email or password!")
       }
     }
   }
@@ -654,27 +744,46 @@ export default function Home() {
   })).filter((a) => a.count > 0)
 
   // CRUD Operations
-  const saveCentre = (isEdit: boolean, centreId?: string) => {
+  const saveCentre = async (isEdit: boolean, centreId?: string) => {
     // Access control: Only super admin can create/edit centres
     if (currentUser?.role !== "super_admin") {
       alert("Only super admin can manage centres!")
       return
     }
 
+    try {
     if (isEdit && centreId) {
-      setCentres(centres.map((c) => (c.id === centreId ? { ...c, ...formData } : c)))
+        const response = await centresAPI.update({
+          ...formData,
+          id: centreId,
+          role: currentUser.role,
+        })
+        if (response.success) {
+          await fetchAllData() // Refresh data
+          alert("Centre updated successfully!")
     } else {
-      const newCentre: Centre = {
+          alert(response.error || "Failed to update centre")
+        }
+      } else {
+        const response = await centresAPI.create({
         ...formData,
-        id: "C" + formData.state.substring(0, 2).toUpperCase() + String(centres.length + 1).padStart(3, "0"),
-        createdAt: new Date().toISOString().split("T")[0],
-      }
-      setCentres([...centres, newCentre])
+          role: currentUser.role,
+        })
+        if (response.success) {
+          await fetchAllData() // Refresh data
+          alert("Centre created successfully!")
+        } else {
+          alert(response.error || "Failed to create centre")
+        }
     }
     closeModal()
+    } catch (error) {
+      console.error("Error saving centre:", error)
+      alert("Error saving centre. Please try again.")
+    }
   }
 
-  const deleteCentre = (id: string) => {
+  const deleteCentre = async (id: string) => {
     // Access control: Only super admin can delete centres
     if (currentUser?.role !== "super_admin") {
       alert("Only super admin can delete centres!")
@@ -682,14 +791,25 @@ export default function Home() {
     }
 
     if (confirm("Are you sure you want to delete this centre?")) {
-      setCentres(centres.filter((c) => c.id !== id))
+      try {
+        const response = await centresAPI.delete(id, currentUser.role)
+        if (response.success) {
+          await fetchAllData() // Refresh data
+          alert("Centre deleted successfully!")
+        } else {
+          alert(response.error || "Failed to delete centre")
+        }
+      } catch (error) {
+        console.error("Error deleting centre:", error)
+        alert("Error deleting centre. Please try again.")
+      }
     }
   }
 
-  const savePatient = (isEdit: boolean, patientId?: string) => {
+  const savePatient = async (isEdit: boolean, patientId?: string) => {
     // Access control: Centre admin can only manage patients from their centre
     if (currentUser?.role === "centre_admin") {
-      if (isEdit && patientId) {
+    if (isEdit && patientId) {
         const existingPatient = patients.find((p) => p.id === patientId)
         if (existingPatient && existingPatient.centreId !== currentUser.centreId) {
           alert("You don't have permission to edit patients from other centres!")
@@ -697,28 +817,49 @@ export default function Home() {
         }
         // Ensure centre admin cannot change the centreId
         formData.centreId = currentUser.centreId
-      } else {
+    } else {
         // New patient must belong to centre admin's centre
         formData.centreId = currentUser.centreId
       }
     }
 
-    const age = calculateAge(formData.dob)
-    if (isEdit && patientId) {
-      setPatients(patients.map((p) => (p.id === patientId ? { ...p, ...formData, age } : p)))
-    } else {
-      const newPatient: Patient = {
+    try {
+      const age = calculateAge(formData.dob)
+      const patientData = {
         ...formData,
-        id: "P" + String(patients.length + 1).padStart(3, "0"),
         age,
-        medications: [],
+        role: currentUser?.role,
+        centreId: currentUser?.role === "centre_admin" ? currentUser.centreId : formData.centreId,
       }
-      setPatients([...patients, newPatient])
+
+      if (isEdit && patientId) {
+        const response = await patientsAPI.update({
+          ...patientData,
+          id: patientId,
+        })
+        if (response.success) {
+          await fetchAllData() // Refresh data
+          alert("Patient updated successfully!")
+        } else {
+          alert(response.error || "Failed to update patient")
+        }
+      } else {
+        const response = await patientsAPI.create(patientData)
+        if (response.success) {
+          await fetchAllData() // Refresh data
+          alert("Patient created successfully!")
+        } else {
+          alert(response.error || "Failed to create patient")
+        }
     }
     closeModal()
+    } catch (error) {
+      console.error("Error saving patient:", error)
+      alert("Error saving patient. Please try again.")
+    }
   }
 
-  const deletePatient = (id: string) => {
+  const deletePatient = async (id: string) => {
     // Access control: Centre admin can only delete patients from their centre
     if (currentUser?.role === "centre_admin") {
       const patient = patients.find((p) => p.id === id)
@@ -729,30 +870,46 @@ export default function Home() {
     }
 
     if (confirm("Are you sure you want to delete this patient?")) {
-      setPatients(patients.filter((p) => p.id !== id))
+      try {
+        const response = await patientsAPI.delete(id, currentUser?.role || "", currentUser?.centreId || undefined)
+        if (response.success) {
+          await fetchAllData() // Refresh data
+          alert("Patient deleted successfully!")
+        } else {
+          alert(response.error || "Failed to delete patient")
+        }
+      } catch (error) {
+        console.error("Error deleting patient:", error)
+        alert("Error deleting patient. Please try again.")
+      }
     }
   }
 
-  const saveQuery = () => {
+  const saveQuery = async () => {
     // Access control: Centre admin can only create queries for their centre
     if (currentUser?.role === "centre_admin") {
       formData.centreId = currentUser.centreId
     }
 
-    const centre = centres.find((c) => c.id === formData.centreId)
-    const newQuery: Query = {
+    try {
+      const response = await queriesAPI.create({
       ...formData,
-      id: "QRY" + String(queries.length + 1).padStart(3, "0"),
-      centreName: centre?.name || "",
       createdBy: currentUser?.name || "",
-      createdAt: new Date().toISOString().split("T")[0],
-      responses: [],
-    }
-    setQueries([...queries, newQuery])
+      })
+      if (response.success) {
+        await fetchAllData() // Refresh data
+        alert("Query submitted successfully!")
     closeModal()
+      } else {
+        alert(response.error || "Failed to submit query")
+      }
+    } catch (error) {
+      console.error("Error saving query:", error)
+      alert("Error submitting query. Please try again.")
+    }
   }
 
-  const addQueryResponse = (queryId: string, message: string) => {
+  const addQueryResponse = async (queryId: string, message: string) => {
     // Access control: Centre admin can only respond to queries from their centre
     if (currentUser?.role === "centre_admin") {
       const query = queries.find((q) => q.id === queryId)
@@ -762,59 +919,76 @@ export default function Home() {
       }
     }
 
-    setQueries(
-      queries.map((q) => {
-        if (q.id === queryId) {
-          return {
-            ...q,
-            responses: [
-              ...q.responses,
-              {
-                id: "RES" + String(q.responses.length + 1).padStart(3, "0"),
+    try {
+      const response = await queriesAPI.addResponse({
+        queryId,
                 message,
                 respondedBy: currentUser?.name || "",
-                respondedAt: new Date().toISOString().split("T")[0],
-                isAdmin: currentUser?.role === "super_admin",
-              },
-            ],
-            status: currentUser?.role === "super_admin" ? "in_progress" : q.status,
-          }
-        }
-        return q
-      }),
-    )
+        role: currentUser?.role,
+        centreId: currentUser?.centreId || undefined,
+      })
+      if (response.success) {
+        await fetchAllData() // Refresh data
+        alert("Response added successfully!")
+      } else {
+        alert(response.error || "Failed to add response")
+      }
+    } catch (error) {
+      console.error("Error adding response:", error)
+      alert("Error adding response. Please try again.")
+    }
   }
 
-  const updateQueryStatus = (queryId: string, status: Query["status"]) => {
+  const updateQueryStatus = async (queryId: string, status: Query["status"]) => {
     // Access control: Only super admin can update query status
     if (currentUser?.role !== "super_admin") {
       alert("Only super admin can update query status!")
       return
     }
-    setQueries(queries.map((q) => (q.id === queryId ? { ...q, status } : q)))
+    try {
+      const response = await queriesAPI.updateStatus({
+        id: queryId,
+        status,
+        role: currentUser.role,
+      })
+      if (response.success) {
+        await fetchAllData() // Refresh data
+      } else {
+        alert(response.error || "Failed to update query status")
+      }
+    } catch (error) {
+      console.error("Error updating query status:", error)
+      alert("Error updating query status. Please try again.")
+    }
   }
 
-  const saveOrder = () => {
+  const saveOrder = async () => {
     // Access control: Only super admin can create orders
     if (currentUser?.role !== "super_admin") {
       alert("Only super admin can issue orders!")
       return
     }
 
-    const centre = formData.targetCentreId ? centres.find((c) => c.id === formData.targetCentreId) : null
-    const newOrder: Order = {
+    try {
+      const response = await ordersAPI.create({
       ...formData,
-      id: "ORD" + String(orders.length + 1).padStart(3, "0"),
-      targetCentreName: centre?.name || "All Centres",
       issuedBy: currentUser?.name || "",
-      issuedAt: new Date().toISOString().split("T")[0],
-      acknowledgements: [],
-    }
-    setOrders([...orders, newOrder])
+        role: currentUser.role,
+      })
+      if (response.success) {
+        await fetchAllData() // Refresh data
+        alert("Order issued successfully!")
     closeModal()
+      } else {
+        alert(response.error || "Failed to issue order")
+      }
+    } catch (error) {
+      console.error("Error saving order:", error)
+      alert("Error issuing order. Please try again.")
+    }
   }
 
-  const acknowledgeOrder = (orderId: string) => {
+  const acknowledgeOrder = async (orderId: string) => {
     // Access control: Centre admin can only acknowledge orders for their centre
     if (currentUser?.role === "centre_admin") {
       const order = orders.find((o) => o.id === orderId)
@@ -824,28 +998,26 @@ export default function Home() {
       }
     }
 
-    setOrders(
-      orders.map((o) => {
-        if (o.id === orderId) {
-          return {
-            ...o,
-            status: "acknowledged",
-            acknowledgements: [
-              ...o.acknowledgements,
-              {
-                centreId: currentUser?.centreId || "",
+    try {
+      const response = await ordersAPI.acknowledge({
+        orderId,
                 acknowledgedBy: currentUser?.name || "",
-                acknowledgedAt: new Date().toISOString().split("T")[0],
-              },
-            ],
-          }
-        }
-        return o
-      }),
-    )
+        role: currentUser?.role,
+        centreId: currentUser?.centreId || undefined,
+      })
+      if (response.success) {
+        await fetchAllData() // Refresh data
+        alert("Order acknowledged successfully!")
+      } else {
+        alert(response.error || "Failed to acknowledge order")
+      }
+    } catch (error) {
+      console.error("Error acknowledging order:", error)
+      alert("Error acknowledging order. Please try again.")
+    }
   }
 
-  const updateOrderStatus = (orderId: string, status: Order["status"]) => {
+  const updateOrderStatus = async (orderId: string, status: Order["status"]) => {
     // Access control: Centre admin can only update orders for their centre
     if (currentUser?.role === "centre_admin") {
       const order = orders.find((o) => o.id === orderId)
@@ -860,10 +1032,25 @@ export default function Home() {
       }
     }
 
-    setOrders(orders.map((o) => (o.id === orderId ? { ...o, status } : o)))
+    try {
+      const response = await ordersAPI.updateStatus({
+        id: orderId,
+        status,
+        role: currentUser?.role,
+        centreId: currentUser?.centreId || undefined,
+      })
+      if (response.success) {
+        await fetchAllData() // Refresh data
+      } else {
+        alert(response.error || "Failed to update order status")
+      }
+    } catch (error) {
+      console.error("Error updating order status:", error)
+      alert("Error updating order status. Please try again.")
+    }
   }
 
-  const addMedication = (patientId: string) => {
+  const addMedication = async (patientId: string) => {
     // Access control: Centre admin can only add medications to patients from their centre
     if (currentUser?.role === "centre_admin") {
       const patient = patients.find((p) => p.id === patientId)
@@ -873,24 +1060,24 @@ export default function Home() {
       }
     }
 
-    setPatients(
-      patients.map((p) => {
-        if (p.id === patientId) {
-          return {
-            ...p,
-            medications: [
-              ...p.medications,
-              {
-                ...formData,
-                id: "MED" + String(p.medications.length + 1).padStart(3, "0"),
-              },
-            ],
-          }
-        }
-        return p
-      }),
-    )
+    try {
+      const response = await patientsAPI.addMedication({
+        patientId,
+        medication: formData,
+        role: currentUser?.role,
+        centreId: currentUser?.centreId || undefined,
+      })
+      if (response.success) {
+        await fetchAllData() // Refresh data
+        alert("Medication added successfully!")
     closeModal()
+      } else {
+        alert(response.error || "Failed to add medication")
+      }
+    } catch (error) {
+      console.error("Error adding medication:", error)
+      alert("Error adding medication. Please try again.")
+    }
   }
 
   // Form Components
@@ -1765,6 +1952,18 @@ export default function Home() {
             <div className="form-group">
               <label htmlFor="password">Password</label>
               <input type="password" id="password" name="password" placeholder="Enter your password" required />
+              <div style={{ textAlign: "right", marginTop: "8px" }}>
+                <a
+                  href="/forgot-password"
+                  style={{
+                    color: "var(--navy-blue)",
+                    textDecoration: "none",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  Forgot Password?
+                </a>
+              </div>
             </div>
             <button type="submit" className="btn btn-primary btn-full">
               Sign In
@@ -2569,7 +2768,7 @@ export default function Home() {
                       <td>
                         {reg.centreCity}, {reg.centreState}
                       </td>
-                      <td>{reg.createdAt ? formatDate(new Date(reg.createdAt).toISOString().split('T')[0]) : "N/A"}</td>
+                      <td>{reg.createdAt ? formatDate(new Date(reg.createdAt as any).toISOString().split('T')[0]) : "N/A"}</td>
                       <td>
                         <div className="action-buttons">
                           <button
