@@ -8,7 +8,8 @@
     "lint": "eslint .",
     "start": "next start",
     "seed": "tsx scripts/seed-database.ts",
-    "test-db": "tsx scripts/test-connection.ts"
+    "test-db": "tsx scripts/test-connection.ts",
+    "create-super-admin": "tsx scripts/create-super-admin.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
