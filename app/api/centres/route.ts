@@ -108,6 +108,12 @@ export async function PUT(request: NextRequest) {
 
     // Centre admin can only update their own centre
     if (role === 'centre_admin') {
+      if (!userCentreId) {
+        return NextResponse.json(
+          { success: false, error: 'Centre ID is required for centre admin' },
+          { status: 400 }
+        )
+      }
       if (id !== userCentreId) {
         return NextResponse.json(
           { success: false, error: 'Unauthorized: You can only update your own centre' },
