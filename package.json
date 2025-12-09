@@ -12,7 +12,9 @@
     "create-super-admin": "tsx scripts/create-super-admin.ts",
     "check-users": "tsx scripts/check-users.ts",
     "reset-passwords": "tsx scripts/reset-super-admin-passwords.ts",
-    "assign-employee-codes": "tsx scripts/assign-employee-codes.ts"
+    "assign-employee-codes": "tsx scripts/assign-employee-codes.ts",
+    "list-centre-admins": "tsx scripts/list-centre-admins.ts",
+    "set-centre-admin-passwords": "tsx scripts/set-centre-admin-passwords.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
