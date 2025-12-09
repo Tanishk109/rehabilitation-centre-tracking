@@ -60,4 +60,3 @@ export async function getDatabase(): Promise<Db> {
     throw new Error(`Failed to connect to MongoDB: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
-
