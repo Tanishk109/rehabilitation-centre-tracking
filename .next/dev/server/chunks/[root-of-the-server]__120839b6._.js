@@ -155,8 +155,8 @@ async function GET(request) {
                 });
             }
         }
-        // Check approval status for centre admins
-        if (user.role === 'centre_admin' && user.status !== 'approved') {
+        // Check approval status for centre admins (status is optional for super_admin)
+        if (user.role === 'centre_admin' && user.status && user.status !== 'approved') {
             if (user.status === 'pending') {
                 return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
                     success: false,
