@@ -77,8 +77,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, data: userWithoutPassword })
   } catch (error) {
     console.error('Error fetching user:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    // Provide more helpful error messages
+    if (errorMessage.includes('MongoDB') || errorMessage.includes('connection')) {
+      return NextResponse.json(
+        { success: false, error: 'Database connection failed. Please check server configuration.' },
+        { status: 500 }
+      )
+    }
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch user' },
+      { success: false, error: `Failed to fetch user: ${errorMessage}` },
       { status: 500 }
     )
   }

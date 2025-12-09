@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
@@ -305,6 +305,24 @@ export default function ResetPasswordPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="login-page">
+        <div className="login-container">
+          <div className="login-form" style={{ textAlign: "center", padding: "40px" }}>
+            <div className="stat-icon" style={{ fontSize: "4rem", marginBottom: "20px" }}>⏳</div>
+            <h2 style={{ color: "var(--navy-blue)" }}>Loading...</h2>
+            <p style={{ color: "var(--gray-600)" }}>Please wait</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   )
 }
 
