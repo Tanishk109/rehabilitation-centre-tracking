@@ -64,14 +64,13 @@ export async function POST(request: NextRequest) {
     // Centre admin can only create patients for their centre
     if (role === 'centre_admin') {
       // Ensure centreId is set from userCentreId (which comes from the request body)
-      if (userCentreId) {
-        body.centreId = userCentreId
-      } else {
+      if (!userCentreId || userCentreId === 'undefined' || userCentreId === 'null') {
         return NextResponse.json(
-          { success: false, error: 'Centre ID is required for centre admin' },
+          { success: false, error: 'Centre ID is required for centre admin. Please ensure you are logged in correctly.' },
           { status: 400 }
         )
       }
+      body.centreId = userCentreId
     } else if (role === 'super_admin' && !body.centreId) {
       return NextResponse.json(
         { success: false, error: 'Centre ID is required' },

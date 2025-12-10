@@ -142,6 +142,12 @@ export async function PUT(request: NextRequest) {
 
     // Centre admin can only update orders for their centre
     if (role === 'centre_admin') {
+      if (!userCentreId || userCentreId === 'undefined' || userCentreId === 'null') {
+        return NextResponse.json(
+          { success: false, error: 'Centre ID is required for centre admin. Please ensure you are logged in correctly.' },
+          { status: 400 }
+        )
+      }
       if (order.targetCentreId !== null && order.targetCentreId !== userCentreId) {
         return NextResponse.json(
           { success: false, error: 'Unauthorized: You can only update orders for your centre' },
@@ -199,6 +205,12 @@ export async function PATCH(request: NextRequest) {
 
     // Centre admin can only acknowledge orders for their centre
     if (role === 'centre_admin') {
+      if (!userCentreId || userCentreId === 'undefined' || userCentreId === 'null') {
+        return NextResponse.json(
+          { success: false, error: 'Centre ID is required for centre admin. Please ensure you are logged in correctly.' },
+          { status: 400 }
+        )
+      }
       if (order.targetCentreId !== null && order.targetCentreId !== userCentreId) {
         return NextResponse.json(
           { success: false, error: 'Unauthorized: You can only acknowledge orders for your centre' },

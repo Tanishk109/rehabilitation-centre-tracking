@@ -459,6 +459,7 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
 
       const response = await usersAPI.updateProfile({
         userId: user.id,
+        email: user.email,
         ...finalData,
       })
 
@@ -1110,7 +1111,13 @@ export default function Home() {
   const savePatient = async (isEdit: boolean, patientId?: string) => {
     // Access control: Centre admin can only manage patients from their centre
     if (currentUser?.role === "centre_admin") {
-    if (isEdit && patientId) {
+      // Validate that centreId exists for centre admin
+      if (!currentUser.centreId) {
+        alert("Error: Centre ID not found. Please contact support.")
+        return
+      }
+      
+      if (isEdit && patientId) {
         const existingPatient = patients.find((p) => p.id === patientId)
         if (existingPatient && existingPatient.centreId !== currentUser.centreId) {
           alert("You don't have permission to edit patients from other centres!")
@@ -1118,7 +1125,7 @@ export default function Home() {
         }
         // Ensure centre admin cannot change the centreId
         formData.centreId = currentUser.centreId
-    } else {
+      } else {
         // New patient must belong to centre admin's centre
         formData.centreId = currentUser.centreId
       }
@@ -1136,6 +1143,10 @@ export default function Home() {
       
       // Ensure centreId is set for centre admin
       if (currentUser?.role === "centre_admin") {
+        if (!currentUser.centreId) {
+          alert("Error: Centre ID not found. Please contact support.")
+          return
+        }
         patientData.centreId = currentUser.centreId
       }
 
@@ -1195,6 +1206,10 @@ export default function Home() {
   const saveQuery = async () => {
     // Access control: Centre admin can only create queries for their centre
     if (currentUser?.role === "centre_admin") {
+      if (!currentUser.centreId) {
+        alert("Error: Centre ID not found. Please contact support.")
+        return
+      }
       formData.centreId = currentUser.centreId
     }
 
@@ -1221,6 +1236,10 @@ export default function Home() {
   const addQueryResponse = async (queryId: string, message: string) => {
     // Access control: Centre admin can only respond to queries from their centre
     if (currentUser?.role === "centre_admin") {
+      if (!currentUser.centreId) {
+        alert("Error: Centre ID not found. Please contact support.")
+        return
+      }
       const query = queries.find((q) => q.id === queryId)
       if (query && query.centreId !== currentUser.centreId) {
         alert("You don't have permission to respond to queries from other centres!")
@@ -1231,10 +1250,10 @@ export default function Home() {
     try {
       const response = await queriesAPI.addResponse({
         queryId,
-                message,
-                respondedBy: currentUser?.name || "",
+        message,
+        respondedBy: currentUser?.name || "",
         role: currentUser?.role,
-        centreId: currentUser?.centreId || undefined,
+        centreId: currentUser?.role === "centre_admin" ? currentUser.centreId : undefined,
       })
       if (response.success) {
         await fetchAllData() // Refresh data
@@ -1300,6 +1319,10 @@ export default function Home() {
   const acknowledgeOrder = async (orderId: string) => {
     // Access control: Centre admin can only acknowledge orders for their centre
     if (currentUser?.role === "centre_admin") {
+      if (!currentUser.centreId) {
+        alert("Error: Centre ID not found. Please contact support.")
+        return
+      }
       const order = orders.find((o) => o.id === orderId)
       if (order && order.targetCentreId !== null && order.targetCentreId !== currentUser.centreId) {
         alert("You don't have permission to acknowledge orders for other centres!")
@@ -1310,9 +1333,9 @@ export default function Home() {
     try {
       const response = await ordersAPI.acknowledge({
         orderId,
-                acknowledgedBy: currentUser?.name || "",
+        acknowledgedBy: currentUser?.name || "",
         role: currentUser?.role,
-        centreId: currentUser?.centreId || undefined,
+        centreId: currentUser?.role === "centre_admin" ? currentUser.centreId : undefined,
       })
       if (response.success) {
         await fetchAllData() // Refresh data
@@ -1329,6 +1352,10 @@ export default function Home() {
   const updateOrderStatus = async (orderId: string, status: Order["status"]) => {
     // Access control: Centre admin can only update orders for their centre
     if (currentUser?.role === "centre_admin") {
+      if (!currentUser.centreId) {
+        alert("Error: Centre ID not found. Please contact support.")
+        return
+      }
       const order = orders.find((o) => o.id === orderId)
       if (order && order.targetCentreId !== null && order.targetCentreId !== currentUser.centreId) {
         alert("You don't have permission to update orders for other centres!")
@@ -1346,7 +1373,7 @@ export default function Home() {
         id: orderId,
         status,
         role: currentUser?.role,
-        centreId: currentUser?.centreId || undefined,
+        centreId: currentUser?.role === "centre_admin" ? currentUser.centreId : undefined,
       })
       if (response.success) {
         await fetchAllData() // Refresh data

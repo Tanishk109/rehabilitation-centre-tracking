@@ -55,14 +55,13 @@ export async function POST(request: NextRequest) {
 
     // Centre admin can only create queries for their centre
     if (role === 'centre_admin') {
-      if (userCentreId) {
-        body.centreId = userCentreId
-      } else {
+      if (!userCentreId || userCentreId === 'undefined' || userCentreId === 'null') {
         return NextResponse.json(
-          { success: false, error: 'Centre ID is required for centre admin' },
+          { success: false, error: 'Centre ID is required for centre admin. Please ensure you are logged in correctly.' },
           { status: 400 }
         )
       }
+      body.centreId = userCentreId
     } else if (role === 'super_admin' && !body.centreId) {
       return NextResponse.json(
         { success: false, error: 'Centre ID is required' },
@@ -189,11 +188,19 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Centre admin can only respond to queries from their centre
-    if (role === 'centre_admin' && query.centreId !== userCentreId) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized: You can only respond to queries from your centre' },
-        { status: 403 }
-      )
+    if (role === 'centre_admin') {
+      if (!userCentreId || userCentreId === 'undefined' || userCentreId === 'null') {
+        return NextResponse.json(
+          { success: false, error: 'Centre ID is required for centre admin. Please ensure you are logged in correctly.' },
+          { status: 400 }
+        )
+      }
+      if (query.centreId !== userCentreId) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized: You can only respond to queries from your centre' },
+          { status: 403 }
+        )
+      }
     }
 
     // Generate response ID
