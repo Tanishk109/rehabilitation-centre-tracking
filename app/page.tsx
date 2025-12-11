@@ -1608,22 +1608,44 @@ export default function Home() {
       return
     }
 
+    // Validate required fields before submission
+    if (!formData.subject || !String(formData.subject).trim()) {
+      alert("Subject is required")
+      return
+    }
+
+    if (!formData.instruction || !String(formData.instruction).trim()) {
+      alert("Instruction is required")
+      return
+    }
+
+    if (!formData.deadline || !String(formData.deadline).trim()) {
+      alert("Deadline is required")
+      return
+    }
+
+    if (!formData.priority) {
+      alert("Priority is required")
+      return
+    }
+
     try {
       const response = await ordersAPI.create({
-      ...formData,
-      issuedBy: currentUser?.name || "",
+        ...formData,
+        issuedBy: currentUser?.name || "",
         role: currentUser.role,
       })
       if (response.success) {
         await fetchAllData() // Refresh data
         alert("Order issued successfully!")
-    closeModal()
+        closeModal()
       } else {
         alert(response.error || "Failed to issue order")
       }
     } catch (error) {
       console.error("Error saving order:", error)
-      alert("Error issuing order. Please try again.")
+      const errorMessage = error instanceof Error ? error.message : "Unknown error"
+      alert(`Error issuing order: ${errorMessage}. Please check all fields and try again.`)
     }
   }
 

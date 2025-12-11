@@ -64,6 +64,90 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate required fields
+    if (!body.subject || !body.subject.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Subject is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!body.instruction || !body.instruction.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Instruction is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!body.deadline || !body.deadline.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Deadline is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!body.priority) {
+      return NextResponse.json(
+        { success: false, error: 'Priority is required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate and normalize deadline format (DD/MM/YYYY)
+    let deadline = body.deadline.trim()
+    const ddmmyyyyRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
+    const match = deadline.match(ddmmyyyyRegex)
+    
+    if (!match) {
+      // Try to parse YYYY-MM-DD format (backward compatibility)
+      const yyyymmddRegex = /^(\d{4})-(\d{2})-(\d{2})$/
+      const yyyyMatch = deadline.match(yyyymmddRegex)
+      if (yyyyMatch) {
+        const [, year, month, day] = yyyyMatch
+        deadline = `${day}/${month}/${year}`
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'Invalid deadline format. Please use DD/MM/YYYY format (e.g., 15/05/2024).' },
+          { status: 400 }
+        )
+      }
+    } else {
+      // Normalize DD/MM/YYYY format
+      const [, day, month, year] = match
+      deadline = `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`
+    }
+
+    // Validate date components
+    const dateParts = deadline.split('/')
+    if (dateParts.length === 3) {
+      const day = parseInt(dateParts[0], 10)
+      const month = parseInt(dateParts[1], 10)
+      const year = parseInt(dateParts[2], 10)
+      
+      if (month < 1 || month > 12) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid month in deadline. Month must be between 1 and 12.' },
+          { status: 400 }
+        )
+      }
+      
+      if (day < 1 || day > 31) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid day in deadline. Day must be between 1 and 31.' },
+          { status: 400 }
+        )
+      }
+      
+      // Validate date is valid
+      const deadlineDate = new Date(year, month - 1, day)
+      if (deadlineDate.getDate() !== day || deadlineDate.getMonth() !== month - 1 || deadlineDate.getFullYear() !== year) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid deadline date. Please enter a valid date.' },
+          { status: 400 }
+        )
+      }
+    }
+
     // Get centre name if targetCentreId is provided
     if (body.targetCentreId) {
       const centre = await centresCollection.findOne({ id: body.targetCentreId })
@@ -75,15 +159,16 @@ export async function POST(request: NextRequest) {
     // Generate unique ID if not provided
     if (!body.id) {
       // Find the highest existing order number to ensure uniqueness
+      // Support both formats: ORD-XXXXX and ORD00123
       const existingOrders = await ordersCollection
-        .find({ id: { $regex: /^ORD\d+$/ } })
+        .find({ id: { $regex: /^ORD/ } })
         .sort({ id: -1 })
         .limit(1)
         .toArray()
       
       let nextNumber = 1
       if (existingOrders.length > 0 && existingOrders[0].id) {
-        // Extract number from existing ID (e.g., ORD00123 -> 123)
+        // Extract number from existing ID (e.g., ORD-00123 -> 123, ORD00123 -> 123)
         const match = existingOrders[0].id.match(/\d+/)
         if (match) {
           nextNumber = parseInt(match[0], 10) + 1
@@ -103,6 +188,8 @@ export async function POST(request: NextRequest) {
 
     body.issuedBy = issuedBy || 'Unknown'
     body.issuedAt = new Date().toISOString().split('T')[0]
+    body.deadline = deadline // Use normalized deadline
+    body.status = body.status || 'issued' // Default to 'issued' if not provided
     body.acknowledgements = []
     body.updatedAt = new Date()
 
