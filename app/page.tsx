@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { centresAPI, patientsAPI, queriesAPI, ordersAPI, usersAPI, registerAPI } from "@/lib/api"
 
 // Types
@@ -1918,6 +1918,18 @@ export default function Home() {
   const PatientForm = ({ patient }: { patient?: Patient }) => {
     const availableCentres =
       currentUser?.role === "centre_admin" ? centres.filter((c) => c.id === currentUser.centreId) : centres
+    const nameInputRef = useRef<HTMLInputElement>(null)
+    
+    // Focus first input only when form first opens (not on every render)
+    useEffect(() => {
+      if (!patient && nameInputRef.current) {
+        // Small delay to ensure modal is fully rendered
+        const timer = setTimeout(() => {
+          nameInputRef.current?.focus()
+        }, 100)
+        return () => clearTimeout(timer)
+      }
+    }, [patient]) // Only run when patient prop changes (i.e., when modal opens)
     
     return (
       <form
@@ -1930,13 +1942,13 @@ export default function Home() {
           <div className="form-group">
             <label>Full Name *</label>
             <input
+              ref={nameInputRef}
               type="text"
               value={String(formData.name || patient?.name || "")}
               onChange={(e) => {
                 setFormData({ ...formData, name: e.target.value })
               }}
               required
-              autoFocus
             />
           </div>
           <div className="form-group">
@@ -2130,6 +2142,18 @@ export default function Home() {
   const QueryForm = () => {
     const availableCentres =
       currentUser?.role === "centre_admin" ? centres.filter((c) => c.id === currentUser.centreId) : centres
+    const subjectInputRef = useRef<HTMLInputElement>(null)
+    
+    // Focus subject input only when form first opens
+    useEffect(() => {
+      if (subjectInputRef.current) {
+        const timer = setTimeout(() => {
+          subjectInputRef.current?.focus()
+        }, 100)
+        return () => clearTimeout(timer)
+      }
+    }, []) // Only run once when component mounts
+    
     return (
       <form
         onSubmit={(e) => {
@@ -2162,13 +2186,13 @@ export default function Home() {
         <div className="form-group">
           <label>Subject *</label>
           <input
+            ref={subjectInputRef}
             type="text"
             value={String(formData.subject || "")}
             onChange={(e) => {
               setFormData({ ...formData, subject: e.target.value })
             }}
             required
-            autoFocus
           />
         </div>
         <div className="form-group">
@@ -2211,40 +2235,53 @@ export default function Home() {
     )
   }
 
-  const OrderForm = () => (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        saveOrder()
-      }}
-    >
-      <div className="form-group">
-        <label>Target Centre</label>
-        <select
-          value={String(formData.targetCentreId || "")}
-          onChange={(e) => {
-            setFormData({ ...formData, targetCentreId: e.target.value || null })
-          }}
-        >
-          <option value="">All Centres</option>
-          {centres.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group">
-        <label>Subject *</label>
-        <input
-          type="text"
-          value={String(formData.subject || "")}
-          onChange={(e) => {
-            setFormData({ ...formData, subject: e.target.value })
-          }}
-          required
-          autoFocus
-        />
+  const OrderForm = () => {
+    const subjectInputRef = useRef<HTMLInputElement>(null)
+    
+    // Focus subject input only when form first opens
+    useEffect(() => {
+      if (subjectInputRef.current) {
+        const timer = setTimeout(() => {
+          subjectInputRef.current?.focus()
+        }, 100)
+        return () => clearTimeout(timer)
+      }
+    }, []) // Only run once when component mounts
+    
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          saveOrder()
+        }}
+      >
+        <div className="form-group">
+          <label>Target Centre</label>
+          <select
+            value={String(formData.targetCentreId || "")}
+            onChange={(e) => {
+              setFormData({ ...formData, targetCentreId: e.target.value || null })
+            }}
+          >
+            <option value="">All Centres</option>
+            {centres.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Subject *</label>
+          <input
+            ref={subjectInputRef}
+            type="text"
+            value={String(formData.subject || "")}
+            onChange={(e) => {
+              setFormData({ ...formData, subject: e.target.value })
+            }}
+            required
+          />
       </div>
       <div className="form-group">
         <label>Instructions *</label>
@@ -2302,7 +2339,8 @@ export default function Home() {
         </button>
       </div>
     </form>
-  )
+    )
+  }
 
   const MedicationForm = ({ patientId }: { patientId: string }) => (
     <form
