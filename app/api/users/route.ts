@@ -193,55 +193,78 @@ export async function PATCH(request: NextRequest) {
       // Trim whitespace
       dobValue = dobValue.trim()
       
-      // Try to normalize various date formats to YYYY-MM-DD
-      let normalizedDate = ''
+      // Parse DD/MM/YYYY format
+      const ddmmyyyyRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
+      const match = dobValue.match(ddmmyyyyRegex)
       
-      // Check if it's already in YYYY-MM-DD format
-      const yyyyMMddRegex = /^\d{4}-\d{2}-\d{2}$/
-      if (yyyyMMddRegex.test(dobValue)) {
-        normalizedDate = dobValue
-      } else {
-        // Try to parse other formats
-        // Handle DD/MM/YYYY or DD-MM-YYYY
-        const ddmmyyyyRegex = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/
-        const match = dobValue.match(ddmmyyyyRegex)
-        if (match) {
-          const [, day, month, year] = match
-          normalizedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+      if (!match) {
+        // Try to parse YYYY-MM-DD format (for backward compatibility)
+        const yyyymmddRegex = /^(\d{4})-(\d{2})-(\d{2})$/
+        const yyyyMatch = dobValue.match(yyyymmddRegex)
+        if (yyyyMatch) {
+          const [, year, month, day] = yyyyMatch
+          dobValue = `${day}/${month}/${year}`
         } else {
-          // Try parsing as Date object
-          const parsedDate = new Date(dobValue)
-          if (!isNaN(parsedDate.getTime())) {
-            const year = parsedDate.getFullYear()
-            const month = String(parsedDate.getMonth() + 1).padStart(2, '0')
-            const day = String(parsedDate.getDate()).padStart(2, '0')
-            normalizedDate = `${year}-${month}-${day}`
-          } else {
-            return NextResponse.json(
-              { success: false, error: 'Invalid date format. Please use YYYY-MM-DD format (e.g., 1990-12-25).' },
-              { status: 400 }
-            )
-          }
+          return NextResponse.json(
+            { success: false, error: 'Invalid date format. Please use DD/MM/YYYY format (e.g., 15/05/1990).' },
+            { status: 400 }
+          )
         }
+      } else {
+        // Normalize DD/MM/YYYY format
+        const [, day, month, year] = match
+        dobValue = `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`
       }
       
-      const today = new Date()
-      today.setHours(0, 0, 0, 0) // Reset time to compare dates only
+      // Parse date for validation
+      const dateParts = dobValue.split('/')
+      if (dateParts.length !== 3) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid date format. Please use DD/MM/YYYY format.' },
+          { status: 400 }
+        )
+      }
       
-      // Parse date - create date in UTC to avoid timezone issues
-      const [year, month, day] = normalizedDate.split('-').map(Number)
-      const birthDate = new Date(Date.UTC(year, month - 1, day))
+      const day = parseInt(dateParts[0], 10)
+      const month = parseInt(dateParts[1], 10)
+      const year = parseInt(dateParts[2], 10)
       
-      // Validate date is valid
-      if (isNaN(birthDate.getTime()) || 
-          birthDate.getUTCFullYear() !== year || 
-          birthDate.getUTCMonth() !== month - 1 || 
-          birthDate.getUTCDate() !== day) {
+      // Validate date components
+      if (isNaN(day) || isNaN(month) || isNaN(year)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid date. Please enter valid numbers.' },
+          { status: 400 }
+        )
+      }
+      
+      if (month < 1 || month > 12) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid month. Month must be between 1 and 12.' },
+          { status: 400 }
+        )
+      }
+      
+      if (day < 1 || day > 31) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid day. Day must be between 1 and 31.' },
+          { status: 400 }
+        )
+      }
+      
+      // Create date object for validation
+      const birthDate = new Date(year, month - 1, day)
+      
+      // Validate date is valid (handles invalid dates like 31/02/1990)
+      if (birthDate.getDate() !== day || birthDate.getMonth() !== month - 1 || birthDate.getFullYear() !== year) {
         return NextResponse.json(
           { success: false, error: 'Invalid date. Please enter a valid date.' },
           { status: 400 }
         )
       }
+      
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      birthDate.setHours(0, 0, 0, 0)
       
       // Validate date is not in the future
       if (birthDate > today) {
@@ -262,8 +285,8 @@ export async function PATCH(request: NextRequest) {
         )
       }
       
-      // Store DOB in ISO format (YYYY-MM-DD)
-      filteredUpdateData.dob = normalizedDate
+      // Store DOB in DD/MM/YYYY format
+      filteredUpdateData.dob = dobValue
       
       // Calculate age
       let age = today.getFullYear() - birthDate.getFullYear()

@@ -370,15 +370,113 @@ const initialOrders: Order[] = [
 ]
 
 // Helper functions
+// Helper function to format date input (DD/MM/YYYY)
+const formatDateInput = (dateValue: string | Date | undefined): string => {
+  if (!dateValue) return ""
+  
+  try {
+    // If already in DD/MM/YYYY format, return as is
+    if (typeof dateValue === 'string' && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateValue.trim())) {
+      const parts = dateValue.trim().split('/')
+      if (parts.length === 3) {
+        const day = parts[0].padStart(2, '0')
+        const month = parts[1].padStart(2, '0')
+        const year = parts[2]
+        return `${day}/${month}/${year}`
+      }
+      return dateValue.trim()
+    }
+    
+    // Try to parse YYYY-MM-DD format and convert to DD/MM/YYYY
+    if (typeof dateValue === 'string') {
+      const trimmed = dateValue.trim()
+      const yyyymmddRegex = /^(\d{4})-(\d{2})-(\d{2})$/
+      const yyyyMatch = trimmed.match(yyyymmddRegex)
+      if (yyyyMatch) {
+        const [, year, month, day] = yyyyMatch
+        return `${day}/${month}/${year}`
+      }
+    }
+    
+    // Parse as Date object
+    const date = new Date(dateValue)
+    if (isNaN(date.getTime())) return ""
+    
+    const day = String(date.getDate()).padStart(2, '0')
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const year = date.getFullYear()
+    return `${day}/${month}/${year}`
+  } catch (error) {
+    return ""
+  }
+}
+
+// Helper function to parse DD/MM/YYYY to Date object
+const parseDDMMYYYYDate = (dateString: string): Date | null => {
+  if (!dateString) return null
+  
+  try {
+    const ddmmyyyyRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
+    const match = dateString.trim().match(ddmmyyyyRegex)
+    if (match) {
+      const [, day, month, year] = match
+      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+      if (!isNaN(date.getTime())) {
+        return date
+      }
+    }
+    return null
+  } catch (error) {
+    return null
+  }
+}
+
+// Helper function to auto-format date input as user types
+const formatDateInputValue = (value: string): string => {
+  // Remove all non-digits
+  let digits = value.replace(/\D/g, '')
+  
+  // Limit to 8 digits (DDMMYYYY)
+  if (digits.length > 8) {
+    digits = digits.slice(0, 8)
+  }
+  
+  // Add slashes automatically
+  if (digits.length <= 2) {
+    return digits
+  } else if (digits.length <= 4) {
+    return digits.slice(0, 2) + '/' + digits.slice(2)
+  } else {
+    return digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4, 8)
+  }
+}
+
 const formatDate = (date: string) => {
   if (!date) return "N/A"
-  return new Date(date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+  
+  // If already in DD/MM/YYYY format, return as is
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(date.trim())) {
+    return date.trim()
+  }
+  
+  // Try to parse and format
+  const parsedDate = parseDDMMYYYYDate(date) || new Date(date)
+  if (isNaN(parsedDate.getTime())) return "N/A"
+  
+  const day = String(parsedDate.getDate()).padStart(2, '0')
+  const month = String(parsedDate.getMonth() + 1).padStart(2, '0')
+  const year = parsedDate.getFullYear()
+  return `${day}/${month}/${year}`
 }
 
 const calculateAge = (dob: string) => {
   if (!dob) return 0
+  
+  // Parse DD/MM/YYYY format
+  const birthDate = parseDDMMYYYYDate(dob) || new Date(dob)
+  if (isNaN(birthDate.getTime())) return 0
+  
   const today = new Date()
-  const birthDate = new Date(dob)
   let age = today.getFullYear() - birthDate.getFullYear()
   const m = today.getMonth() - birthDate.getMonth()
   if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--
@@ -403,13 +501,13 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  // Calculate age from DOB helper function
+  // Calculate age from DOB helper function (accepts DD/MM/YYYY format)
   const calculateAgeFromDOB = (dob: string): number | "" => {
     if (!dob) return ""
-    const today = new Date()
-    const birthDate = new Date(dob)
+    const birthDate = parseDDMMYYYY(dob)
+    if (!birthDate) return ""
     
-    if (isNaN(birthDate.getTime())) return ""
+    const today = new Date()
     if (birthDate > today) return ""
     
     let age = today.getFullYear() - birthDate.getFullYear()
@@ -421,43 +519,71 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
     return age >= 0 && age <= 150 ? age : ""
   }
 
-  // Format date for date input (YYYY-MM-DD format)
+  // Format date for input (DD/MM/YYYY format)
   const formatDateForInput = (dateValue: string | Date | undefined): string => {
     if (!dateValue) return ""
     
     try {
-      // If it's already a string in YYYY-MM-DD format, return as is
+      // If it's already a string in DD/MM/YYYY format, return as is
       if (typeof dateValue === 'string') {
         const trimmed = dateValue.trim()
-        // Check if already in YYYY-MM-DD format
-        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        // Check if already in DD/MM/YYYY format
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmed)) {
+          // Normalize to DD/MM/YYYY with leading zeros
+          const parts = trimmed.split('/')
+          if (parts.length === 3) {
+            const day = parts[0].padStart(2, '0')
+            const month = parts[1].padStart(2, '0')
+            const year = parts[2]
+            return `${day}/${month}/${year}`
+          }
           return trimmed
         }
         
-        // Try to parse DD/MM/YYYY or DD-MM-YYYY format
-        const ddmmyyyyRegex = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/
-        const match = trimmed.match(ddmmyyyyRegex)
+        // Try to parse YYYY-MM-DD format and convert to DD/MM/YYYY
+        const yyyymmddRegex = /^(\d{4})-(\d{2})-(\d{2})$/
+        const match = trimmed.match(yyyymmddRegex)
         if (match) {
-          const [, day, month, year] = match
-          return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+          const [, year, month, day] = match
+          return `${day}/${month}/${year}`
         }
       }
       
-      // Parse the date and format it
+      // Parse the date and format it as DD/MM/YYYY
       const date = new Date(dateValue)
       if (isNaN(date.getTime())) {
         console.warn('Invalid date value:', dateValue)
         return ""
       }
       
-      // Format as YYYY-MM-DD using UTC to avoid timezone issues
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
+      // Format as DD/MM/YYYY
       const day = String(date.getDate()).padStart(2, '0')
-      return `${year}-${month}-${day}`
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const year = date.getFullYear()
+      return `${day}/${month}/${year}`
     } catch (error) {
       console.error('Error formatting date:', error, dateValue)
       return ""
+    }
+  }
+  
+  // Convert DD/MM/YYYY to Date object for calculations
+  const parseDDMMYYYY = (dateString: string): Date | null => {
+    if (!dateString) return null
+    
+    try {
+      const ddmmyyyyRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
+      const match = dateString.trim().match(ddmmyyyyRegex)
+      if (match) {
+        const [, day, month, year] = match
+        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+        if (!isNaN(date.getTime())) {
+          return date
+        }
+      }
+      return null
+    } catch (error) {
+      return null
     }
   }
 
@@ -477,9 +603,12 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
   // Auto-calculate age when DOB changes
   useEffect(() => {
     if (profileData.dob && profileData.dob.trim() !== '') {
-      const calculatedAge = calculateAgeFromDOB(profileData.dob)
-      if (calculatedAge !== "" && calculatedAge !== profileData.age) {
-        setProfileData(prev => ({ ...prev, age: calculatedAge }))
+      const birthDate = parseDDMMYYYY(profileData.dob)
+      if (birthDate) {
+        const calculatedAge = calculateAgeFromDOB(profileData.dob)
+        if (calculatedAge !== "" && calculatedAge !== profileData.age) {
+          setProfileData(prev => ({ ...prev, age: calculatedAge }))
+        }
       }
     }
     // Note: We don't clear age when DOB is cleared to allow manual age entry
@@ -501,18 +630,23 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
         finalData.phone = profileData.phone.trim()
       }
       if (profileData.dob && profileData.dob.trim() !== '') {
-        const today = new Date()
-        const birthDate = new Date(profileData.dob)
+        const dobString = profileData.dob.trim()
+        const birthDate = parseDDMMYYYY(dobString)
         
-        // Validate date is valid
-        if (isNaN(birthDate.getTime())) {
-          alert("Invalid date of birth format. Please use YYYY-MM-DD format.")
+        // Validate date format (DD/MM/YYYY)
+        if (!birthDate) {
+          alert("Invalid date of birth format. Please use DD/MM/YYYY format (e.g., 15/05/1990).")
           setSaving(false)
           return
         }
         
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const normalizedBirthDate = new Date(birthDate.getFullYear(), birthDate.getMonth(), birthDate.getDate())
+        normalizedBirthDate.setHours(0, 0, 0, 0)
+        
         // Validate date is not in the future
-        if (birthDate > today) {
+        if (normalizedBirthDate > today) {
           alert("Date of birth cannot be in the future. Please enter a valid date.")
           setSaving(false)
           return
@@ -521,13 +655,15 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
         // Validate date is reasonable (not more than 150 years ago)
         const minDate = new Date()
         minDate.setFullYear(today.getFullYear() - 150)
-        if (birthDate < minDate) {
+        minDate.setHours(0, 0, 0, 0)
+        if (normalizedBirthDate < minDate) {
           alert("Date of birth is too far in the past. Please enter a valid date.")
           setSaving(false)
           return
         }
         
-        finalData.dob = profileData.dob.trim()
+        // Store in DD/MM/YYYY format
+        finalData.dob = dobString
         // Calculate age from DOB
         let age = today.getFullYear() - birthDate.getFullYear()
         const monthDiff = today.getMonth() - birthDate.getMonth()
@@ -556,52 +692,23 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
         finalData.address = profileData.address.trim()
       }
 
-      // Ensure DOB is in correct format (YYYY-MM-DD) if provided
+      // Ensure DOB is in correct format (DD/MM/YYYY) if provided
       if (finalData.dob && typeof finalData.dob === 'string') {
-        let dobString = finalData.dob.trim()
+        const dobString = finalData.dob.trim()
+        const birthDate = parseDDMMYYYY(dobString)
         
-        // HTML5 date input should always return YYYY-MM-DD, but handle edge cases
-        // Check if it's already in YYYY-MM-DD format
-        const yyyyMMddRegex = /^\d{4}-\d{2}-\d{2}$/
-        if (yyyyMMddRegex.test(dobString)) {
-          // Already in correct format
-          finalData.dob = dobString
-        } else {
-          // Try to convert from other formats (DD/MM/YYYY or DD-MM-YYYY)
-          const ddmmyyyyRegex = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/
-          const match = dobString.match(ddmmyyyyRegex)
-          if (match) {
-            const [, day, month, year] = match
-            dobString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
-            finalData.dob = dobString
-          } else {
-            // Try parsing as Date
-            const dobDate = new Date(dobString)
-            if (!isNaN(dobDate.getTime())) {
-              const year = dobDate.getFullYear()
-              const month = String(dobDate.getMonth() + 1).padStart(2, '0')
-              const day = String(dobDate.getDate()).padStart(2, '0')
-              finalData.dob = `${year}-${month}-${day}`
-            } else {
-              alert("Invalid date format. Please use the date picker or enter date in YYYY-MM-DD format (e.g., 1990-12-25).")
-              setSaving(false)
-              return
-            }
-          }
-        }
-        
-        // Final validation - verify it's a valid date
-        const [year, month, day] = finalData.dob.split('-').map(Number)
-        const dobDate = new Date(Date.UTC(year, month - 1, day))
-        
-        if (isNaN(dobDate.getTime()) || 
-            dobDate.getUTCFullYear() !== year || 
-            dobDate.getUTCMonth() !== month - 1 || 
-            dobDate.getUTCDate() !== day) {
-          alert("Invalid date. Please enter a valid date.")
+        // Validate date format (DD/MM/YYYY)
+        if (!birthDate) {
+          alert("Invalid date format. Please use DD/MM/YYYY format (e.g., 15/05/1990).")
           setSaving(false)
           return
         }
+        
+        // Normalize to DD/MM/YYYY format
+        const day = String(birthDate.getDate()).padStart(2, '0')
+        const month = String(birthDate.getMonth() + 1).padStart(2, '0')
+        const year = birthDate.getFullYear()
+        finalData.dob = `${day}/${month}/${year}`
       }
 
       const response = await usersAPI.updateProfile({
@@ -624,7 +731,7 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
       
       // Provide user-friendly error messages
       if (errorMessage.includes('pattern') || errorMessage.includes('validation')) {
-        alert("Invalid data format. Please check all fields and ensure dates are in YYYY-MM-DD format.")
+        alert("Invalid data format. Please check all fields and ensure dates are in DD/MM/YYYY format (e.g., 15/05/1990).")
       } else if (errorMessage.includes('404') || errorMessage.includes('not found')) {
         alert("User not found. Please refresh the page and try again.")
       } else {
@@ -662,7 +769,7 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
             </div>
             <div className="detail-item">
               <label>Date of Birth</label>
-              <span>{profileData.dob ? new Date(profileData.dob).toLocaleDateString() : "Not set"}</span>
+              <span>{profileData.dob || "Not set"}</span>
             </div>
             <div className="detail-item">
               <label>Age</label>
@@ -755,24 +862,39 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
             <div className="form-group">
               <label>Date of Birth</label>
               <input
-                type="date"
+                type="text"
                 value={profileData.dob || ""}
                 onChange={(e) => {
-                  // HTML5 date input always returns YYYY-MM-DD format
-                  const newDob = e.target.value
-                  // Ensure it's in YYYY-MM-DD format (should already be, but double-check)
-                  if (newDob && /^\d{4}-\d{2}-\d{2}$/.test(newDob)) {
-                    setProfileData({ ...profileData, dob: newDob })
-                    // Age will be auto-calculated by useEffect
-                  } else if (newDob === "") {
-                    // Allow clearing the date
-                    setProfileData({ ...profileData, dob: "" })
+                  let value = e.target.value
+                  // Allow only digits and slashes
+                  value = value.replace(/[^\d\/]/g, '')
+                  
+                  // Auto-format as user types (DD/MM/YYYY)
+                  if (value.length > 0 && !value.includes('/')) {
+                    // Add slashes automatically
+                    if (value.length <= 2) {
+                      // DD
+                      value = value
+                    } else if (value.length <= 4) {
+                      // DDMM
+                      value = value.slice(0, 2) + '/' + value.slice(2)
+                    } else if (value.length <= 8) {
+                      // DDMMYYYY
+                      value = value.slice(0, 2) + '/' + value.slice(2, 4) + '/' + value.slice(4, 8)
+                    } else {
+                      // Limit to DD/MM/YYYY
+                      value = value.slice(0, 2) + '/' + value.slice(2, 4) + '/' + value.slice(4, 8)
+                    }
                   }
+                  
+                  setProfileData({ ...profileData, dob: value })
                 }}
-                max={new Date().toISOString().split("T")[0]}
+                placeholder="DD/MM/YYYY"
+                maxLength={10}
+                pattern="\d{2}/\d{2}/\d{4}"
               />
               <small style={{ color: "var(--gray-600)", fontSize: "0.85rem" }}>
-                Use the date picker - format will be YYYY-MM-DD automatically
+                Format: DD/MM/YYYY (e.g., 15/05/1990)
               </small>
             </div>
           </div>
@@ -1759,11 +1881,19 @@ export default function Home() {
           <div className="form-group">
             <label>Date of Birth *</label>
             <input
-              type="date"
-              value={(formData.dob as string) || patient?.dob || ""}
-              onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+              type="text"
+              value={formatDateInput((formData.dob as string) || patient?.dob || "")}
+              onChange={(e) => {
+                const formatted = formatDateInputValue(e.target.value)
+                setFormData({ ...formData, dob: formatted })
+              }}
+              placeholder="DD/MM/YYYY"
+              maxLength={10}
               required
             />
+            <small style={{ color: "var(--gray-600)", fontSize: "0.85rem" }}>
+              Format: DD/MM/YYYY (e.g., 15/05/1990)
+            </small>
           </div>
         </div>
         <div className="form-row">
@@ -1882,11 +2012,19 @@ export default function Home() {
           <div className="form-group">
             <label>Admission Date *</label>
             <input
-              type="date"
-              value={(formData.admissionDate as string) || patient?.admissionDate || ""}
-              onChange={(e) => setFormData({ ...formData, admissionDate: e.target.value })}
+              type="text"
+              value={formatDateInput((formData.admissionDate as string) || patient?.admissionDate || "")}
+              onChange={(e) => {
+                const formatted = formatDateInputValue(e.target.value)
+                setFormData({ ...formData, admissionDate: formatted })
+              }}
+              placeholder="DD/MM/YYYY"
+              maxLength={10}
               required
             />
+            <small style={{ color: "var(--gray-600)", fontSize: "0.85rem" }}>
+              Format: DD/MM/YYYY (e.g., 15/05/2024)
+            </small>
           </div>
           <div className="form-group">
             <label>Status *</label>
@@ -2043,11 +2181,19 @@ export default function Home() {
         <div className="form-group">
           <label>Deadline *</label>
           <input
-            type="date"
-            value={formData.deadline || ""}
-            onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+            type="text"
+            value={formatDateInput(String(formData.deadline || ""))}
+            onChange={(e) => {
+              const formatted = formatDateInputValue(e.target.value)
+              setFormData({ ...formData, deadline: formatted })
+            }}
+            placeholder="DD/MM/YYYY"
+            maxLength={10}
             required
           />
+          <small style={{ color: "var(--gray-600)", fontSize: "0.85rem" }}>
+            Format: DD/MM/YYYY (e.g., 15/05/2024)
+          </small>
         </div>
       </div>
       <div className="form-actions">
@@ -2103,9 +2249,14 @@ export default function Home() {
         <div className="form-group">
           <label>Start Date *</label>
           <input
-            type="date"
-            value={formData.startDate || ""}
-            onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+            type="text"
+            value={formatDateInput(String(formData.startDate || ""))}
+            onChange={(e) => {
+              const formatted = formatDateInputValue(e.target.value)
+              setFormData({ ...formData, startDate: formatted })
+            }}
+            placeholder="DD/MM/YYYY"
+            maxLength={10}
             required
           />
         </div>

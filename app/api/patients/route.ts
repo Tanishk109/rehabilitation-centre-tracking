@@ -84,14 +84,30 @@ export async function POST(request: NextRequest) {
       body.id = `P${String(count + 1).padStart(3, '0')}`
     }
 
-    // Calculate age if not provided
+    // Calculate age if not provided (handles DD/MM/YYYY format)
     if (body.dob && !body.age) {
-      const today = new Date()
-      const birthDate = new Date(body.dob)
-      let age = today.getFullYear() - birthDate.getFullYear()
-      const m = today.getMonth() - birthDate.getMonth()
-      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--
-      body.age = age
+      let birthDate: Date
+      const dobString = String(body.dob).trim()
+      
+      // Parse DD/MM/YYYY format
+      const ddmmyyyyRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
+      const match = dobString.match(ddmmyyyyRegex)
+      
+      if (match) {
+        const [, day, month, year] = match
+        birthDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+      } else {
+        // Try YYYY-MM-DD format (backward compatibility)
+        birthDate = new Date(dobString)
+      }
+      
+      if (!isNaN(birthDate.getTime())) {
+        const today = new Date()
+        let age = today.getFullYear() - birthDate.getFullYear()
+        const m = today.getMonth() - birthDate.getMonth()
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--
+        body.age = age
+      }
     }
 
     body.medications = body.medications || []
@@ -145,14 +161,30 @@ export async function PUT(request: NextRequest) {
       body.centreId = userCentreId
     }
 
-    // Calculate age if dob changed
+    // Calculate age if dob changed (handles DD/MM/YYYY format)
     if (body.dob) {
-      const today = new Date()
-      const birthDate = new Date(body.dob)
-      let age = today.getFullYear() - birthDate.getFullYear()
-      const m = today.getMonth() - birthDate.getMonth()
-      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--
-      body.age = age
+      let birthDate: Date
+      const dobString = String(body.dob).trim()
+      
+      // Parse DD/MM/YYYY format
+      const ddmmyyyyRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
+      const match = dobString.match(ddmmyyyyRegex)
+      
+      if (match) {
+        const [, day, month, year] = match
+        birthDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+      } else {
+        // Try YYYY-MM-DD format (backward compatibility)
+        birthDate = new Date(dobString)
+      }
+      
+      if (!isNaN(birthDate.getTime())) {
+        const today = new Date()
+        let age = today.getFullYear() - birthDate.getFullYear()
+        const m = today.getMonth() - birthDate.getMonth()
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--
+        body.age = age
+      }
     }
 
     const { id: patientId, role: _, centreId: __, ...updateData } = body
