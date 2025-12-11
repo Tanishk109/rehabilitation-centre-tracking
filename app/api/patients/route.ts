@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const search = searchParams.get('search')
 
-    let query: { centreId?: string; status?: string; $or?: Array<{ name?: { $regex: string; $options: string }; id?: { $regex: string; $options: string }; aadharNumber?: { $regex: string; $options: string } }> } = {}
+    let query: { centreId?: string; status?: "admitted" | "under_treatment" | "recovering" | "discharged"; $or?: Array<{ name?: { $regex: string; $options: string }; id?: { $regex: string; $options: string }; aadharNumber?: { $regex: string; $options: string } }> } = {}
 
     // Filter by centreId if centre_admin
     if (role === 'centre_admin' && centreId) {
@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter by status
-    if (status) {
-      query.status = status
+    if (status && (status === 'admitted' || status === 'under_treatment' || status === 'recovering' || status === 'discharged')) {
+      query.status = status as "admitted" | "under_treatment" | "recovering" | "discharged"
     }
 
     // Search filter
@@ -251,8 +251,16 @@ export async function DELETE(request: NextRequest) {
     const role = searchParams.get('role')
     const centreId = searchParams.get('centreId')
 
+    // Validate id parameter
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'Patient ID is required' },
+        { status: 400 }
+      )
+    }
+
     // Check if patient exists
-    const patient = await patientsCollection.findOne({ id })
+    const patient = await patientsCollection.findOne({ id: id })
     if (!patient) {
       return NextResponse.json(
         { success: false, error: 'Patient not found' },
@@ -268,7 +276,7 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const result = await patientsCollection.deleteOne({ id })
+    const result = await patientsCollection.deleteOne({ id: id })
 
     return NextResponse.json({ success: true, message: 'Patient deleted successfully' })
   } catch (error) {
