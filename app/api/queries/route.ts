@@ -196,10 +196,10 @@ export async function PATCH(request: NextRequest) {
         )
       }
       if (query.centreId !== userCentreId) {
-        return NextResponse.json(
-          { success: false, error: 'Unauthorized: You can only respond to queries from your centre' },
-          { status: 403 }
-        )
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: You can only respond to queries from your centre' },
+        { status: 403 }
+      )
       }
     }
 

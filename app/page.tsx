@@ -665,11 +665,11 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
         // Store in DD/MM/YYYY format
         finalData.dob = dobString
         // Calculate age from DOB
-        let age = today.getFullYear() - birthDate.getFullYear()
-        const monthDiff = today.getMonth() - birthDate.getMonth()
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-          age--
-        }
+          let age = today.getFullYear() - birthDate.getFullYear()
+          const monthDiff = today.getMonth() - birthDate.getMonth()
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--
+          }
         
         // Validate calculated age
         if (age < 0 || age > 150) {
@@ -678,7 +678,7 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
           return
         }
         
-        finalData.age = age
+          finalData.age = age
       } else if (profileData.age && (typeof profileData.age === 'number' || (typeof profileData.age === 'string' && profileData.age.trim() !== ''))) {
         const ageNum = typeof profileData.age === 'number' ? profileData.age : parseInt(profileData.age)
         if (!isNaN(ageNum) && ageNum > 0) {
@@ -1436,7 +1436,7 @@ export default function Home() {
         return
       }
       
-      if (isEdit && patientId) {
+    if (isEdit && patientId) {
         const existingPatient = patients.find((p) => p.id === patientId)
         if (existingPatient && existingPatient.centreId !== currentUser.centreId) {
           alert("You don't have permission to edit patients from other centres!")
@@ -1444,7 +1444,7 @@ export default function Home() {
         }
         // Ensure centre admin cannot change the centreId
         formData.centreId = currentUser.centreId
-      } else {
+    } else {
         // New patient must belong to centre admin's centre
         formData.centreId = currentUser.centreId
       }
@@ -1519,7 +1519,7 @@ export default function Home() {
         } else {
           alert(response.error || "Failed to create patient")
         }
-      }
+    }
     } catch (error) {
       console.error("Error saving patient:", error)
       const errorMessage = error instanceof Error ? error.message : "Unknown error"
@@ -1604,8 +1604,8 @@ export default function Home() {
     try {
       const response = await queriesAPI.addResponse({
         queryId,
-        message,
-        respondedBy: currentUser?.name || "",
+                message,
+                respondedBy: currentUser?.name || "",
         role: currentUser?.role,
         centreId: currentUser?.role === "centre_admin" ? currentUser.centreId : undefined,
       })
@@ -1674,14 +1674,14 @@ export default function Home() {
 
     try {
       const response = await ordersAPI.create({
-        ...formData,
-        issuedBy: currentUser?.name || "",
+      ...formData,
+      issuedBy: currentUser?.name || "",
         role: currentUser.role,
       })
       if (response.success) {
         await fetchAllData() // Refresh data
         alert("Order issued successfully!")
-        closeModal()
+    closeModal()
       } else {
         alert(response.error || "Failed to issue order")
       }
@@ -1709,7 +1709,7 @@ export default function Home() {
     try {
       const response = await ordersAPI.acknowledge({
         orderId,
-        acknowledgedBy: currentUser?.name || "",
+                acknowledgedBy: currentUser?.name || "",
         role: currentUser?.role,
         centreId: currentUser?.role === "centre_admin" ? currentUser.centreId : undefined,
       })
@@ -1810,22 +1810,22 @@ export default function Home() {
     }, [])
     
     return (
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          saveCentre(!!centre, centre?.id)
-        }}
-      >
-        <div className="form-row">
-          <div className="form-group">
-            <label>Centre Name *</label>
-            <input
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        saveCentre(!!centre, centre?.id)
+      }}
+    >
+      <div className="form-row">
+        <div className="form-group">
+          <label>Centre Name *</label>
+          <input
               ref={nameInputRef}
-              type="text"
-              value={(formData.name as string) || centre?.name || ""}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
+            type="text"
+            value={(formData.name as string) || centre?.name || ""}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            required
+          />
         </div>
         <div className="form-group">
           <label>State *</label>
@@ -1938,7 +1938,7 @@ export default function Home() {
         </button>
       </div>
     </form>
-    )
+  )
   }
 
   const PatientForm = ({ patient }: { patient?: Patient }) => {
@@ -2277,39 +2277,39 @@ export default function Home() {
     }, []) // Only run once when component mounts
     
     return (
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          saveOrder()
-        }}
-      >
-        <div className="form-group">
-          <label>Target Centre</label>
-          <select
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        saveOrder()
+      }}
+    >
+      <div className="form-group">
+        <label>Target Centre</label>
+        <select
             value={String(formData.targetCentreId || "")}
             onChange={(e) => {
               setFormData({ ...formData, targetCentreId: e.target.value || null })
             }}
-          >
-            <option value="">All Centres</option>
-            {centres.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Subject *</label>
-          <input
+        >
+          <option value="">All Centres</option>
+          {centres.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="form-group">
+        <label>Subject *</label>
+        <input
             ref={subjectInputRef}
-            type="text"
+          type="text"
             value={String(formData.subject || "")}
             onChange={(e) => {
               setFormData({ ...formData, subject: e.target.value })
             }}
-            required
-          />
+          required
+        />
       </div>
       <div className="form-group">
         <label>Instructions *</label>
@@ -2367,7 +2367,7 @@ export default function Home() {
         </button>
       </div>
     </form>
-    )
+  )
   }
 
   const MedicationForm = ({ patientId }: { patientId: string }) => {
@@ -2387,22 +2387,22 @@ export default function Home() {
     }, [])
     
     return (
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          addMedication(patientId)
-        }}
-      >
-        <div className="form-row">
-          <div className="form-group">
-            <label>Medication Name *</label>
-            <input
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        addMedication(patientId)
+      }}
+    >
+      <div className="form-row">
+        <div className="form-group">
+          <label>Medication Name *</label>
+          <input
               ref={nameInputRef}
-              type="text"
-              value={formData.name || ""}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
+            type="text"
+            value={formData.name || ""}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            required
+          />
         </div>
         <div className="form-group">
           <label>Dosage *</label>
@@ -2459,7 +2459,7 @@ export default function Home() {
         </button>
       </div>
     </form>
-    )
+  )
   }
 
   const PatientDetails = ({ patient }: { patient: Patient }) => {
