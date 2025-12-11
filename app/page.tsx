@@ -1912,6 +1912,7 @@ export default function Home() {
   const PatientForm = ({ patient }: { patient?: Patient }) => {
     const availableCentres =
       currentUser?.role === "centre_admin" ? centres.filter((c) => c.id === currentUser.centreId) : centres
+    
     return (
       <form
         onSubmit={(e) => {
@@ -1924,9 +1925,12 @@ export default function Home() {
             <label>Full Name *</label>
             <input
               type="text"
-              value={(formData.name as string) || patient?.name || ""}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              value={String(formData.name || patient?.name || "")}
+              onChange={(e) => {
+                setFormData({ ...formData, name: e.target.value })
+              }}
               required
+              autoFocus
             />
           </div>
           <div className="form-group">
@@ -1965,8 +1969,10 @@ export default function Home() {
             <label>Phone *</label>
             <input
               type="tel"
-              value={(formData.phone as string) || patient?.phone || ""}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              value={String(formData.phone || patient?.phone || "")}
+              onChange={(e) => {
+                setFormData({ ...formData, phone: e.target.value })
+              }}
               required
             />
           </div>
@@ -1974,8 +1980,10 @@ export default function Home() {
         <div className="form-group">
           <label>Address *</label>
           <textarea
-            value={(formData.address as string) || patient?.address || ""}
-            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            value={String(formData.address || patient?.address || "")}
+            onChange={(e) => {
+              setFormData({ ...formData, address: e.target.value })
+            }}
             rows={2}
             required
           />
@@ -1985,8 +1993,10 @@ export default function Home() {
             <label>Aadhar Number *</label>
             <input
               type="text"
-              value={(formData.aadharNumber as string) || patient?.aadharNumber || ""}
-              onChange={(e) => setFormData({ ...formData, aadharNumber: e.target.value })}
+              value={String(formData.aadharNumber || patient?.aadharNumber || "")}
+              onChange={(e) => {
+                setFormData({ ...formData, aadharNumber: e.target.value })
+              }}
               placeholder="XXXX-XXXX-XXXX"
               required
             />
@@ -2005,8 +2015,10 @@ export default function Home() {
             <label>Family Contact Name *</label>
             <input
               type="text"
-              value={(formData.familyContactName as string) || patient?.familyContactName || ""}
-              onChange={(e) => setFormData({ ...formData, familyContactName: e.target.value })}
+              value={String(formData.familyContactName || patient?.familyContactName || "")}
+              onChange={(e) => {
+                setFormData({ ...formData, familyContactName: e.target.value })
+              }}
               placeholder="Name (Relation)"
               required
             />
@@ -2015,8 +2027,10 @@ export default function Home() {
             <label>Family Phone *</label>
             <input
               type="tel"
-              value={(formData.familyContactPhone as string) || patient?.familyContactPhone || ""}
-              onChange={(e) => setFormData({ ...formData, familyContactPhone: e.target.value })}
+              value={String(formData.familyContactPhone || patient?.familyContactPhone || "")}
+              onChange={(e) => {
+                setFormData({ ...formData, familyContactPhone: e.target.value })
+              }}
               required
             />
           </div>
@@ -3203,7 +3217,20 @@ export default function Home() {
               className="btn btn-primary"
               onClick={() => {
                 // Reset formData first - ensure it's completely empty for new patient
-                const initialData: Record<string, string | number | null | undefined> = {}
+                const initialData: Record<string, string | number | null | undefined> = {
+                  name: "",
+                  dob: "",
+                  gender: "",
+                  phone: "",
+                  address: "",
+                  aadharNumber: "",
+                  email: "",
+                  familyContactName: "",
+                  familyContactPhone: "",
+                  addictionType: "",
+                  admissionDate: "",
+                  status: "admitted"
+                }
                 if (currentUser?.role === "centre_admin" && currentUser.centreId) {
                   initialData.centreId = currentUser.centreId
                 }
@@ -3754,7 +3781,7 @@ export default function Home() {
                 &times;
               </button>
             </div>
-            <div className="modal-content">{modalContent}</div>
+            <div className="modal-content" style={{ pointerEvents: 'auto' }}>{modalContent}</div>
           </div>
         </div>
       )}
