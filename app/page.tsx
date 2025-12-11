@@ -421,13 +421,38 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
     return age >= 0 && age <= 150 ? age : ""
   }
 
+  // Format date for date input (YYYY-MM-DD format)
+  const formatDateForInput = (dateValue: string | Date | undefined): string => {
+    if (!dateValue) return ""
+    
+    try {
+      // If it's already a string in YYYY-MM-DD format, return as is
+      if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+        return dateValue
+      }
+      
+      // Parse the date and format it
+      const date = new Date(dateValue)
+      if (isNaN(date.getTime())) return ""
+      
+      // Format as YYYY-MM-DD
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    } catch (error) {
+      console.error('Error formatting date:', error)
+      return ""
+    }
+  }
+
   // Update profileData when user prop changes
   useEffect(() => {
     setProfileData({
       name: user.name || "",
       email: user.email || "",
       phone: user.phone || "",
-      dob: user.dob || "",
+      dob: formatDateForInput(user.dob),
       age: user.age || "",
       aadharNumber: user.aadharNumber || "",
       address: user.address || "",
@@ -518,10 +543,30 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
 
       // Ensure DOB is in correct format (YYYY-MM-DD) if provided
       if (finalData.dob && typeof finalData.dob === 'string') {
-        const dobDate = new Date(finalData.dob)
-        if (!isNaN(dobDate.getTime())) {
-          finalData.dob = dobDate.toISOString().split('T')[0]
+        const dobString = finalData.dob.trim()
+        // Validate format is YYYY-MM-DD
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+        if (!dateRegex.test(dobString)) {
+          alert("Invalid date format. Please use YYYY-MM-DD format (e.g., 1990-12-25).")
+          setSaving(false)
+          return
         }
+        
+        // Verify it's a valid date
+        const [year, month, day] = dobString.split('-').map(Number)
+        const dobDate = new Date(Date.UTC(year, month - 1, day))
+        
+        if (isNaN(dobDate.getTime()) || 
+            dobDate.getUTCFullYear() !== year || 
+            dobDate.getUTCMonth() !== month - 1 || 
+            dobDate.getUTCDate() !== day) {
+          alert("Invalid date. Please enter a valid date in YYYY-MM-DD format.")
+          setSaving(false)
+          return
+        }
+        
+        // Ensure it's stored in YYYY-MM-DD format
+        finalData.dob = dobString
       }
 
       const response = await usersAPI.updateProfile({
