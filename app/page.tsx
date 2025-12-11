@@ -700,7 +700,8 @@ export default function Home() {
     setLoading(true)
     try {
       // Fetch all data in parallel (without filters - filters applied client-side)
-      const [centresResponse, patientsResponse, queriesResponse, ordersResponse] = await Promise.all([
+      // Use Promise.allSettled to handle individual failures gracefully
+      const [centresResult, patientsResult, queriesResult, ordersResult] = await Promise.allSettled([
         centresAPI.getAll(
           currentUser.role,
           currentUser.centreId || undefined,
@@ -727,20 +728,33 @@ export default function Home() {
         ),
       ])
 
-      if (centresResponse.success) {
-        setCentres(centresResponse.data || [])
+      // Handle each result individually
+      if (centresResult.status === 'fulfilled' && centresResult.value.success) {
+        setCentres(centresResult.value.data || [])
+      } else {
+        console.error("Error fetching centres:", centresResult.status === 'rejected' ? centresResult.reason : centresResult.value)
+        setCentres([])
       }
 
-      if (patientsResponse.success) {
-        setPatients(patientsResponse.data || [])
+      if (patientsResult.status === 'fulfilled' && patientsResult.value.success) {
+        setPatients(patientsResult.value.data || [])
+      } else {
+        console.error("Error fetching patients:", patientsResult.status === 'rejected' ? patientsResult.reason : patientsResult.value)
+        setPatients([])
       }
 
-      if (queriesResponse.success) {
-        setQueries(queriesResponse.data || [])
+      if (queriesResult.status === 'fulfilled' && queriesResult.value.success) {
+        setQueries(queriesResult.value.data || [])
+      } else {
+        console.error("Error fetching queries:", queriesResult.status === 'rejected' ? queriesResult.reason : queriesResult.value)
+        setQueries([])
       }
 
-      if (ordersResponse.success) {
-        setOrders(ordersResponse.data || [])
+      if (ordersResult.status === 'fulfilled' && ordersResult.value.success) {
+        setOrders(ordersResult.value.data || [])
+      } else {
+        console.error("Error fetching orders:", ordersResult.status === 'rejected' ? ordersResult.reason : ordersResult.value)
+        setOrders([])
       }
 
       // Fetch pending registrations and centre admins for super admin
@@ -755,7 +769,6 @@ export default function Home() {
       setPatients([])
       setQueries([])
       setOrders([])
-      alert("Failed to fetch data. Please refresh the page.")
     } finally {
       setLoading(false)
     }
