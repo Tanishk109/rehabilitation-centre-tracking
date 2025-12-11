@@ -516,6 +516,14 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
         finalData.address = profileData.address.trim()
       }
 
+      // Ensure DOB is in correct format (YYYY-MM-DD) if provided
+      if (finalData.dob && typeof finalData.dob === 'string') {
+        const dobDate = new Date(finalData.dob)
+        if (!isNaN(dobDate.getTime())) {
+          finalData.dob = dobDate.toISOString().split('T')[0]
+        }
+      }
+
       const response = await usersAPI.updateProfile({
         userId: user.id,
         email: user.email,
@@ -533,7 +541,15 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
     } catch (error) {
       console.error("Error updating profile:", error)
       const errorMessage = error instanceof Error ? error.message : "Unknown error"
-      alert(`Error updating profile: ${errorMessage}. Please check the console for details.`)
+      
+      // Provide user-friendly error messages
+      if (errorMessage.includes('pattern') || errorMessage.includes('validation')) {
+        alert("Invalid data format. Please check all fields and ensure dates are in YYYY-MM-DD format.")
+      } else if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+        alert("User not found. Please refresh the page and try again.")
+      } else {
+        alert(`Error updating profile: ${errorMessage}. Please check the console for details.`)
+      }
     } finally {
       setSaving(false)
     }
