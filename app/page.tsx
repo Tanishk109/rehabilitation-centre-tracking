@@ -403,6 +403,24 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // Calculate age from DOB helper function
+  const calculateAgeFromDOB = (dob: string): number | "" => {
+    if (!dob) return ""
+    const today = new Date()
+    const birthDate = new Date(dob)
+    
+    if (isNaN(birthDate.getTime())) return ""
+    if (birthDate > today) return ""
+    
+    let age = today.getFullYear() - birthDate.getFullYear()
+    const monthDiff = today.getMonth() - birthDate.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--
+    }
+    
+    return age >= 0 && age <= 150 ? age : ""
+  }
+
   // Update profileData when user prop changes
   useEffect(() => {
     setProfileData({
@@ -415,6 +433,17 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
       address: user.address || "",
     })
   }, [user])
+
+  // Auto-calculate age when DOB changes
+  useEffect(() => {
+    if (profileData.dob && profileData.dob.trim() !== '') {
+      const calculatedAge = calculateAgeFromDOB(profileData.dob)
+      if (calculatedAge !== "" && calculatedAge !== profileData.age) {
+        setProfileData(prev => ({ ...prev, age: calculatedAge }))
+      }
+    }
+    // Note: We don't clear age when DOB is cleared to allow manual age entry
+  }, [profileData.dob]) // Only depend on dob, not age to avoid infinite loop
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -432,18 +461,48 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
         finalData.phone = profileData.phone.trim()
       }
       if (profileData.dob && profileData.dob.trim() !== '') {
-        finalData.dob = profileData.dob.trim()
-        // Calculate age from DOB
         const today = new Date()
         const birthDate = new Date(profileData.dob)
-        if (!isNaN(birthDate.getTime())) {
-          let age = today.getFullYear() - birthDate.getFullYear()
-          const monthDiff = today.getMonth() - birthDate.getMonth()
-          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-            age--
-          }
-          finalData.age = age
+        
+        // Validate date is valid
+        if (isNaN(birthDate.getTime())) {
+          alert("Invalid date of birth format. Please use YYYY-MM-DD format.")
+          setSaving(false)
+          return
         }
+        
+        // Validate date is not in the future
+        if (birthDate > today) {
+          alert("Date of birth cannot be in the future. Please enter a valid date.")
+          setSaving(false)
+          return
+        }
+        
+        // Validate date is reasonable (not more than 150 years ago)
+        const minDate = new Date()
+        minDate.setFullYear(today.getFullYear() - 150)
+        if (birthDate < minDate) {
+          alert("Date of birth is too far in the past. Please enter a valid date.")
+          setSaving(false)
+          return
+        }
+        
+        finalData.dob = profileData.dob.trim()
+        // Calculate age from DOB
+        let age = today.getFullYear() - birthDate.getFullYear()
+        const monthDiff = today.getMonth() - birthDate.getMonth()
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--
+        }
+        
+        // Validate calculated age
+        if (age < 0 || age > 150) {
+          alert("Invalid age calculated from date of birth. Please check the date.")
+          setSaving(false)
+          return
+        }
+        
+        finalData.age = age
       } else if (profileData.age && (typeof profileData.age === 'number' || (typeof profileData.age === 'string' && profileData.age.trim() !== ''))) {
         const ageNum = typeof profileData.age === 'number' ? profileData.age : parseInt(profileData.age)
         if (!isNaN(ageNum) && ageNum > 0) {
@@ -467,12 +526,14 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
         const updatedUser = { ...user, ...response.data }
         onUpdate(updatedUser)
         setIsEditing(false)
+        alert("Profile updated successfully!")
       } else {
         alert(response.error || "Failed to update profile")
       }
     } catch (error) {
       console.error("Error updating profile:", error)
-      alert("Error updating profile. Please try again.")
+      const errorMessage = error instanceof Error ? error.message : "Unknown error"
+      alert(`Error updating profile: ${errorMessage}. Please check the console for details.`)
     } finally {
       setSaving(false)
     }
@@ -601,10 +662,15 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
                 type="date"
                 value={profileData.dob}
                 onChange={(e) => {
-                  setProfileData({ ...profileData, dob: e.target.value })
+                  const newDob = e.target.value
+                  setProfileData({ ...profileData, dob: newDob })
+                  // Age will be auto-calculated by useEffect
                 }}
                 max={new Date().toISOString().split("T")[0]}
               />
+              <small style={{ color: "var(--gray-600)", fontSize: "0.85rem" }}>
+                Age will be automatically calculated
+              </small>
             </div>
           </div>
           <div className="form-row">
@@ -613,13 +679,20 @@ const ProfileForm = ({ user, onUpdate, readOnly = false }: { user: User; onUpdat
               <input
                 type="number"
                 value={profileData.age || ""}
-                onChange={(e) => setProfileData({ ...profileData, age: parseInt(e.target.value) || "" })}
-                placeholder="Auto-calculated from DOB"
-                min={18}
-                max={100}
+                onChange={(e) => {
+                  const newAge = e.target.value === "" ? "" : parseInt(e.target.value)
+                  setProfileData({ ...profileData, age: newAge })
+                }}
+                placeholder={profileData.dob ? "Auto-calculated from DOB" : "Enter age manually"}
+                min={0}
+                max={150}
+                disabled={!!profileData.dob}
+                style={profileData.dob ? { background: "var(--gray-100)", cursor: "not-allowed" } : {}}
               />
               <small style={{ color: "var(--gray-600)", fontSize: "0.85rem" }}>
-                Will be auto-calculated if DOB is provided
+                {profileData.dob 
+                  ? "Auto-calculated from Date of Birth (cannot be edited)" 
+                  : "Enter age manually or provide Date of Birth to auto-calculate"}
               </small>
             </div>
             <div className="form-group">
