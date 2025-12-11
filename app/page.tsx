@@ -968,6 +968,8 @@ export default function Home() {
   const [modalOpen, setModalOpen] = useState(false)
   const [modalTitle, setModalTitle] = useState("")
   const [modalContent, setModalContent] = useState<React.ReactNode>(null)
+  const [modalType, setModalType] = useState<string | null>(null)
+  const [modalProps, setModalProps] = useState<Record<string, unknown> | null>(null)
 
   // Filters
   const [centreSearch, setCentreSearch] = useState("")
@@ -1195,9 +1197,11 @@ export default function Home() {
     localStorage.removeItem("nrcms_current_user")
   }
 
-  const openModal = (title: string, content: React.ReactNode) => {
+  const openModal = (title: string, content: React.ReactNode, type?: string, props?: Record<string, unknown>) => {
     setModalTitle(title)
     setModalContent(content)
+    setModalType(type || null)
+    setModalProps(props || null)
     setModalOpen(true)
   }
 
@@ -1205,6 +1209,8 @@ export default function Home() {
     setModalOpen(false)
     setModalTitle("")
     setModalContent(null)
+    setModalType(null)
+    setModalProps(null)
     setFormData({})
   }
 
@@ -2134,8 +2140,14 @@ export default function Home() {
         <div className="form-group">
           <label>Centre *</label>
           <select
-            value={(formData.centreId as string) || (currentUser?.role === "centre_admin" ? currentUser.centreId : "") || ""}
-            onChange={(e) => setFormData({ ...formData, centreId: e.target.value })}
+            value={
+              (currentUser?.role === "centre_admin" && currentUser.centreId) 
+                ? currentUser.centreId 
+                : String(formData.centreId || "")
+            }
+            onChange={(e) => {
+              setFormData({ ...formData, centreId: e.target.value })
+            }}
             required
             disabled={currentUser?.role === "centre_admin"}
           >
@@ -2151,17 +2163,22 @@ export default function Home() {
           <label>Subject *</label>
           <input
             type="text"
-            value={(formData.subject as string) || ""}
-            onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+            value={String(formData.subject || "")}
+            onChange={(e) => {
+              setFormData({ ...formData, subject: e.target.value })
+            }}
             required
+            autoFocus
           />
         </div>
         <div className="form-group">
           <label>Description *</label>
           <textarea
             className="response-textarea"
-            value={(formData.description as string) || ""}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            value={String(formData.description || "")}
+            onChange={(e) => {
+              setFormData({ ...formData, description: e.target.value })
+            }}
             rows={4}
             required
             placeholder="Describe your query in detail..."
@@ -2170,8 +2187,10 @@ export default function Home() {
         <div className="form-group">
           <label>Priority *</label>
           <select
-            value={(formData.priority as string) || "medium"}
-            onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+            value={String(formData.priority || "medium")}
+            onChange={(e) => {
+              setFormData({ ...formData, priority: e.target.value })
+            }}
             required
           >
             <option value="low">Low</option>
@@ -2202,8 +2221,10 @@ export default function Home() {
       <div className="form-group">
         <label>Target Centre</label>
         <select
-          value={formData.targetCentreId || ""}
-          onChange={(e) => setFormData({ ...formData, targetCentreId: e.target.value || null })}
+          value={String(formData.targetCentreId || "")}
+          onChange={(e) => {
+            setFormData({ ...formData, targetCentreId: e.target.value || null })
+          }}
         >
           <option value="">All Centres</option>
           {centres.map((c) => (
@@ -2217,17 +2238,22 @@ export default function Home() {
         <label>Subject *</label>
         <input
           type="text"
-          value={formData.subject || ""}
-          onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+          value={String(formData.subject || "")}
+          onChange={(e) => {
+            setFormData({ ...formData, subject: e.target.value })
+          }}
           required
+          autoFocus
         />
       </div>
       <div className="form-group">
         <label>Instructions *</label>
         <textarea
           className="response-textarea"
-          value={formData.instruction || ""}
-          onChange={(e) => setFormData({ ...formData, instruction: e.target.value })}
+          value={String(formData.instruction || "")}
+          onChange={(e) => {
+            setFormData({ ...formData, instruction: e.target.value })
+          }}
           rows={4}
           required
           placeholder="Enter detailed instructions for the centres..."
@@ -2237,8 +2263,10 @@ export default function Home() {
         <div className="form-group">
           <label>Priority *</label>
           <select
-            value={formData.priority || "medium"}
-            onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+            value={String(formData.priority || "medium")}
+            onChange={(e) => {
+              setFormData({ ...formData, priority: e.target.value })
+            }}
             required
           >
             <option value="low">Low</option>
@@ -2749,18 +2777,31 @@ export default function Home() {
   // Helper function to open add query modal
   const openAddQueryModal = () => {
     // Reset formData first - ensure it's completely empty for new query
-    const initialData: Record<string, string | number | null | undefined> = {}
+    const initialData: Record<string, string | number | null | undefined> = {
+      subject: "",
+      description: "",
+      priority: "medium",
+      centreId: ""
+    }
     if (currentUser?.role === "centre_admin" && currentUser.centreId) {
       initialData.centreId = currentUser.centreId
     }
     setFormData(initialData)
-    openModal("Raise Query", <QueryForm />)
+    openModal("Raise Query", null, "addQuery", {})
   }
 
   // Helper function to open add order modal
   const openAddOrderModal = () => {
-    setFormData({})
-    openModal("Issue Order", <OrderForm />)
+    // Reset formData first - ensure it's completely empty for new order
+    const initialData: Record<string, string | number | null | undefined> = {
+      subject: "",
+      instruction: "",
+      priority: "medium",
+      deadline: "",
+      targetCentreId: null
+    }
+    setFormData(initialData)
+    openModal("Issue Order", null, "addOrder", {})
   }
 
   // Main Application
@@ -3235,7 +3276,7 @@ export default function Home() {
                   initialData.centreId = currentUser.centreId
                 }
                 setFormData(initialData)
-                openModal("Add New Patient", <PatientForm />)
+                openModal("Add New Patient", null, "addPatient", {})
               }}
             >
               + Add Patient
@@ -3316,7 +3357,7 @@ export default function Home() {
                               className="btn btn-outline btn-small"
                               onClick={() => {
                                 setFormData(p as unknown as Record<string, string | number | null | undefined>)
-                                openModal("Edit Patient", <PatientForm patient={p} />)
+                                openModal("Edit Patient", null, "editPatient", { patient: p })
                               }}
                             >
                               Edit
@@ -3781,7 +3822,13 @@ export default function Home() {
                 &times;
               </button>
             </div>
-            <div className="modal-content" style={{ pointerEvents: 'auto' }}>{modalContent}</div>
+            <div className="modal-content" style={{ pointerEvents: 'auto' }}>
+              {modalType === "addPatient" ? <PatientForm /> : 
+               modalType === "editPatient" && modalProps?.patient ? <PatientForm patient={modalProps.patient as Patient} /> :
+               modalType === "addQuery" ? <QueryForm /> :
+               modalType === "addOrder" ? <OrderForm /> :
+               modalContent}
+            </div>
           </div>
         </div>
       )}
