@@ -1216,6 +1216,7 @@ select option:checked {
   justify-content: center;
   z-index: 1000;
   padding: 20px;
+  pointer-events: auto; /* Allow clicks on overlay to close modal */
 }
 
 .modal-container {
@@ -1227,6 +1228,9 @@ select option:checked {
   overflow-y: auto;
   box-shadow: var(--shadow-xl), 0 0 30px rgba(255, 107, 0, 0.2);
   border: 2px solid rgba(255, 107, 0, 0.1);
+  pointer-events: auto; /* Ensure modal content is clickable */
+  position: relative;
+  z-index: 1001;
 }
 
 .modal-header {
@@ -1260,9 +1264,15 @@ select option:checked {
 
 .modal-content {
   padding: 25px;
+  pointer-events: auto; /* Ensure form inputs are clickable */
 }
 .modal-content .form-group {
   margin-bottom: 15px;
+}
+.modal-content input,
+.modal-content textarea,
+.modal-content select {
+  pointer-events: auto; /* Ensure all form elements are interactive */
 }
 
 .modal-actions {

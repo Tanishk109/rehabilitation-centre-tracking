@@ -3822,7 +3822,7 @@ export default function Home() {
                 &times;
               </button>
             </div>
-            <div className="modal-content" style={{ pointerEvents: 'auto' }}>
+            <div className="modal-content">
               {modalType === "addPatient" ? <PatientForm /> : 
                modalType === "editPatient" && modalProps?.patient ? <PatientForm patient={modalProps.patient as Patient} /> :
                modalType === "addQuery" ? <QueryForm /> :
