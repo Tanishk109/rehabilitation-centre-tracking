@@ -710,7 +710,6 @@ body {
   justify-content: center;
   z-index: 1000;
   padding: 20px;
-  pointer-events: auto; /* Allow clicks on overlay to close modal */
 }
 
 .modal-container {
@@ -721,9 +720,6 @@ body {
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: var(--shadow-lg);
-  pointer-events: auto; /* Ensure modal content is clickable */
-  position: relative;
-  z-index: 1001;
 }
 
 .modal-header {
@@ -756,17 +752,10 @@ body {
 
 .modal-content {
   padding: 25px;
-  pointer-events: auto; /* Ensure form inputs are clickable */
 }
 
 .modal-content .form-group {
   margin-bottom: 15px;
-}
-
-.modal-content input,
-.modal-content textarea,
-.modal-content select {
-  pointer-events: auto; /* Ensure all form elements are interactive */
 }
 
 .modal-actions {
