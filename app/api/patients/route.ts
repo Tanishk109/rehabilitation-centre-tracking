@@ -59,23 +59,51 @@ export async function POST(request: NextRequest) {
     const patientsCollection = db.collection<Patient>('patients')
     
     const body = await request.json()
-    const { role, centreId: userCentreId } = body
+    const { role, centreId } = body
+
+    // Validate required fields
+    if (!body.name || !body.name.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Patient name is required' },
+        { status: 400 }
+      )
+    }
+
+    if (!body.dob || !body.dob.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Date of birth is required' },
+        { status: 400 }
+      )
+    }
 
     // Centre admin can only create patients for their centre
     if (role === 'centre_admin') {
-      // Ensure centreId is set from userCentreId (which comes from the request body)
-      if (!userCentreId || userCentreId === 'undefined' || userCentreId === 'null') {
+      // Ensure centreId is set from the request body
+      if (!centreId || centreId === 'undefined' || centreId === 'null' || centreId === '') {
         return NextResponse.json(
           { success: false, error: 'Centre ID is required for centre admin. Please ensure you are logged in correctly.' },
           { status: 400 }
         )
       }
-      body.centreId = userCentreId
-    } else if (role === 'super_admin' && !body.centreId) {
-      return NextResponse.json(
-        { success: false, error: 'Centre ID is required' },
-        { status: 400 }
-      )
+      // Ensure the centreId from the request matches the user's centreId (security check)
+      body.centreId = centreId
+    } else if (role === 'super_admin') {
+      // Super admin must provide centreId
+      if (!body.centreId || body.centreId === 'undefined' || body.centreId === 'null' || body.centreId === '') {
+        return NextResponse.json(
+          { success: false, error: 'Centre ID is required. Please select a centre for the patient.' },
+          { status: 400 }
+        )
+      }
+      // Validate that the centre exists
+      const centresCollection = db.collection('centres')
+      const centre = await centresCollection.findOne({ id: body.centreId })
+      if (!centre) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid centre ID. Please select a valid centre.' },
+          { status: 400 }
+        )
+      }
     }
 
     // Generate ID if not provided
@@ -137,7 +165,7 @@ export async function PUT(request: NextRequest) {
     const patientsCollection = db.collection<Patient>('patients')
     
     const body = await request.json()
-    const { id, role, centreId: userCentreId } = body
+    const { id, role, centreId } = body
 
     // Check if patient exists and belongs to centre admin's centre
     const existingPatient = await patientsCollection.findOne({ id })
@@ -149,16 +177,21 @@ export async function PUT(request: NextRequest) {
     }
 
     // Centre admin can only update patients from their centre
-    if (role === 'centre_admin' && existingPatient.centreId !== userCentreId) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized: You can only update patients from your centre' },
-        { status: 403 }
-      )
-    }
-
-    // Ensure centre admin cannot change centreId
     if (role === 'centre_admin') {
-      body.centreId = userCentreId
+      if (!centreId || centreId === 'undefined' || centreId === 'null' || centreId === '') {
+        return NextResponse.json(
+          { success: false, error: 'Centre ID is required for centre admin. Please ensure you are logged in correctly.' },
+          { status: 400 }
+        )
+      }
+      if (existingPatient.centreId !== centreId) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized: You can only update patients from your centre' },
+          { status: 403 }
+        )
+      }
+      // Ensure centre admin cannot change centreId
+      body.centreId = centreId
     }
 
     // Calculate age if dob changed (handles DD/MM/YYYY format)

@@ -1442,6 +1442,25 @@ export default function Home() {
       }
     }
 
+    // Validate required fields before submission
+    if (!formData.name || !String(formData.name).trim()) {
+      alert("Patient name is required")
+      return
+    }
+
+    if (!formData.dob || !String(formData.dob).trim()) {
+      alert("Date of birth is required")
+      return
+    }
+
+    // Validate centreId for super admin
+    if (currentUser?.role === "super_admin") {
+      if (!formData.centreId || formData.centreId === "" || formData.centreId === "undefined" || formData.centreId === "null") {
+        alert("Please select a centre for the patient")
+        return
+      }
+    }
+
     try {
       const age = calculateAge((formData.dob as string) || "")
       // Build patient data - ensure role and centreId are included
@@ -1461,6 +1480,14 @@ export default function Home() {
         patientData.centreId = currentUser.centreId
       }
 
+      // Ensure centreId is set for super admin
+      if (currentUser?.role === "super_admin") {
+        if (!patientData.centreId || patientData.centreId === "" || patientData.centreId === "undefined" || patientData.centreId === "null") {
+          alert("Centre ID is required. Please select a centre.")
+          return
+        }
+      }
+
       if (isEdit && patientId) {
         const response = await patientsAPI.update({
           ...patientData,
@@ -1477,14 +1504,16 @@ export default function Home() {
         if (response.success) {
           await fetchAllData() // Refresh data
           alert("Patient created successfully!")
+          closeModal()
         } else {
           alert(response.error || "Failed to create patient")
         }
-    }
-    closeModal()
+      }
     } catch (error) {
       console.error("Error saving patient:", error)
-      alert("Error saving patient. Please try again.")
+      const errorMessage = error instanceof Error ? error.message : "Unknown error"
+      // The API error message should already be user-friendly
+      alert(`Error saving patient: ${errorMessage}`)
     }
   }
 
@@ -2011,7 +2040,11 @@ export default function Home() {
           <div className="form-group">
             <label>Centre *</label>
             <select
-              value={(formData.centreId as string) || patient?.centreId || (currentUser?.role === "centre_admin" ? currentUser.centreId : "") || ""}
+              value={
+                (currentUser?.role === "centre_admin" && currentUser.centreId) 
+                  ? currentUser.centreId 
+                  : ((formData.centreId as string) || patient?.centreId || "")
+              }
               onChange={(e) => setFormData({ ...formData, centreId: e.target.value })}
               required
               disabled={currentUser?.role === "centre_admin"}
