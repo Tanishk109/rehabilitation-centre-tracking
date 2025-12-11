@@ -1629,6 +1629,7 @@ export default function Home() {
             value={(formData.state as string) || centre?.state || ""}
             onChange={(e) => setFormData({ ...formData, state: e.target.value })}
             required
+            disabled={currentUser?.role === "centre_admin" && !!centre}
           >
             <option value="">Select State</option>
             {INDIAN_STATES.map((state) => (
@@ -1637,6 +1638,11 @@ export default function Home() {
               </option>
             ))}
           </select>
+          {currentUser?.role === "centre_admin" && !!centre && (
+            <small style={{ color: "var(--gray-500)", fontSize: "0.85rem", display: "block", marginTop: "4px" }}>
+              State cannot be changed (affects centre ID)
+            </small>
+          )}
         </div>
       </div>
       <div className="form-row">
