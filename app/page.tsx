@@ -1059,6 +1059,8 @@ export default function Home() {
 
       // Fetch pending registrations and centre admins for super admin
       if (currentUser.role === "super_admin") {
+        // These are called separately and don't need to be in dependencies
+        // They're defined later in the code
         fetchPendingRegistrations()
         fetchCentreAdmins()
       }
@@ -1508,9 +1510,12 @@ export default function Home() {
       } else {
         const response = await patientsAPI.create(patientData)
         if (response.success) {
-          await fetchAllData() // Refresh data
-          alert("Patient created successfully!")
+          // Clear form data first
+          setFormData({})
           closeModal()
+          // Refresh data and ensure UI updates immediately
+          await fetchAllData()
+          alert("Patient created successfully!")
         } else {
           alert(response.error || "Failed to create patient")
         }
@@ -1567,9 +1572,12 @@ export default function Home() {
         centreId: currentUser?.role === "centre_admin" ? currentUser.centreId : formData.centreId,
       })
       if (response.success) {
-        await fetchAllData() // Refresh data
-        alert("Query submitted successfully!")
+        // Clear form data first
+        setFormData({})
         closeModal()
+        // Refresh data and ensure UI updates immediately
+        await fetchAllData()
+        alert("Query submitted successfully!")
       } else {
         alert(response.error || "Failed to submit query")
       }
@@ -1785,22 +1793,39 @@ export default function Home() {
   }
 
   // Form Components
-  const CentreForm = ({ centre }: { centre?: Centre }) => (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        saveCentre(!!centre, centre?.id)
-      }}
-    >
-      <div className="form-row">
-        <div className="form-group">
-          <label>Centre Name *</label>
-          <input
-            type="text"
-            value={(formData.name as string) || centre?.name || ""}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            required
-          />
+  const CentreForm = ({ centre }: { centre?: Centre }) => {
+    const nameInputRef = useRef<HTMLInputElement>(null)
+    
+    // Focus first input only once when form mounts (not on every re-render)
+    useEffect(() => {
+      if (!centre && nameInputRef.current) {
+        // Small delay to ensure modal is fully rendered
+        const timer = setTimeout(() => {
+          nameInputRef.current?.focus()
+        }, 100)
+        return () => clearTimeout(timer)
+      }
+      // Empty dependency array → runs only once on mount
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+    
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          saveCentre(!!centre, centre?.id)
+        }}
+      >
+        <div className="form-row">
+          <div className="form-group">
+            <label>Centre Name *</label>
+            <input
+              ref={nameInputRef}
+              type="text"
+              value={(formData.name as string) || centre?.name || ""}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+            />
         </div>
         <div className="form-group">
           <label>State *</label>
@@ -1913,14 +1938,15 @@ export default function Home() {
         </button>
       </div>
     </form>
-  )
+    )
+  }
 
   const PatientForm = ({ patient }: { patient?: Patient }) => {
     const availableCentres =
       currentUser?.role === "centre_admin" ? centres.filter((c) => c.id === currentUser.centreId) : centres
     const nameInputRef = useRef<HTMLInputElement>(null)
     
-    // Focus first input only when form first opens (not on every render)
+    // Focus first input only once when form mounts (not on every re-render)
     useEffect(() => {
       if (!patient && nameInputRef.current) {
         // Small delay to ensure modal is fully rendered
@@ -1929,7 +1955,9 @@ export default function Home() {
         }, 100)
         return () => clearTimeout(timer)
       }
-    }, [patient]) // Only run when patient prop changes (i.e., when modal opens)
+      // Empty dependency array → runs only once on mount
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
     
     return (
       <form
@@ -2342,22 +2370,39 @@ export default function Home() {
     )
   }
 
-  const MedicationForm = ({ patientId }: { patientId: string }) => (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        addMedication(patientId)
-      }}
-    >
-      <div className="form-row">
-        <div className="form-group">
-          <label>Medication Name *</label>
-          <input
-            type="text"
-            value={formData.name || ""}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            required
-          />
+  const MedicationForm = ({ patientId }: { patientId: string }) => {
+    const nameInputRef = useRef<HTMLInputElement>(null)
+    
+    // Focus first input only once when form mounts (not on every re-render)
+    useEffect(() => {
+      if (nameInputRef.current) {
+        // Small delay to ensure modal is fully rendered
+        const timer = setTimeout(() => {
+          nameInputRef.current?.focus()
+        }, 100)
+        return () => clearTimeout(timer)
+      }
+      // Empty dependency array → runs only once on mount
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+    
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          addMedication(patientId)
+        }}
+      >
+        <div className="form-row">
+          <div className="form-group">
+            <label>Medication Name *</label>
+            <input
+              ref={nameInputRef}
+              type="text"
+              value={formData.name || ""}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+            />
         </div>
         <div className="form-group">
           <label>Dosage *</label>
@@ -2414,7 +2459,8 @@ export default function Home() {
         </button>
       </div>
     </form>
-  )
+    )
+  }
 
   const PatientDetails = ({ patient }: { patient: Patient }) => {
     // Access control: Centre admin can only view patients from their centre
