@@ -128,3 +128,223 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PATCH - Update user profile
+export async function PATCH(request: NextRequest) {
+  try {
+    const db = await getDatabase()
+    const usersCollection = db.collection<User>('users')
+    
+    const body = await request.json()
+    const { userId, email, ...updateData } = body
+
+    if (!userId && !email) {
+      return NextResponse.json(
+        { success: false, error: 'User ID or email is required' },
+        { status: 400 }
+      )
+    }
+
+    // Find the user to update - try by id first, then by email
+    let user: User | null = null
+    let query: { id?: string; email?: string } = {}
+    
+    if (userId) {
+      query = { id: userId }
+      user = await usersCollection.findOne(query)
+    }
+    
+    // If not found by id, try by email
+    if (!user && email) {
+      query = { email: email.toLowerCase() }
+      user = await usersCollection.findOne(query)
+    }
+    
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    // Fields that can be updated through profile update
+    const allowedFields = ['name', 'phone', 'dob', 'age', 'aadharNumber', 'address']
+    
+    // Filter updateData to only include allowed fields and non-empty values
+    const filteredUpdateData: Partial<User> = {}
+    for (const field of allowedFields) {
+      if (updateData[field] !== undefined && updateData[field] !== null) {
+        // Skip empty strings
+        if (typeof updateData[field] === 'string' && updateData[field].trim() === '') {
+          continue
+        }
+        filteredUpdateData[field as keyof User] = updateData[field]
+      }
+    }
+
+    // Validate and calculate age if DOB is provided
+    if (filteredUpdateData.dob) {
+      let dobValue = filteredUpdateData.dob
+      
+      // Ensure DOB is a string
+      if (typeof dobValue !== 'string') {
+        dobValue = String(dobValue)
+      }
+      
+      // Trim whitespace
+      dobValue = dobValue.trim()
+      
+      // Try to normalize various date formats to YYYY-MM-DD
+      let normalizedDate = ''
+      
+      // Check if it's already in YYYY-MM-DD format
+      const yyyyMMddRegex = /^\d{4}-\d{2}-\d{2}$/
+      if (yyyyMMddRegex.test(dobValue)) {
+        normalizedDate = dobValue
+      } else {
+        // Try to parse other formats
+        // Handle DD/MM/YYYY or DD-MM-YYYY
+        const ddmmyyyyRegex = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/
+        const match = dobValue.match(ddmmyyyyRegex)
+        if (match) {
+          const [, day, month, year] = match
+          normalizedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+        } else {
+          // Try parsing as Date object
+          const parsedDate = new Date(dobValue)
+          if (!isNaN(parsedDate.getTime())) {
+            const year = parsedDate.getFullYear()
+            const month = String(parsedDate.getMonth() + 1).padStart(2, '0')
+            const day = String(parsedDate.getDate()).padStart(2, '0')
+            normalizedDate = `${year}-${month}-${day}`
+          } else {
+            return NextResponse.json(
+              { success: false, error: 'Invalid date format. Please use YYYY-MM-DD format (e.g., 1990-12-25).' },
+              { status: 400 }
+            )
+          }
+        }
+      }
+      
+      const today = new Date()
+      today.setHours(0, 0, 0, 0) // Reset time to compare dates only
+      
+      // Parse date - create date in UTC to avoid timezone issues
+      const [year, month, day] = normalizedDate.split('-').map(Number)
+      const birthDate = new Date(Date.UTC(year, month - 1, day))
+      
+      // Validate date is valid
+      if (isNaN(birthDate.getTime()) || 
+          birthDate.getUTCFullYear() !== year || 
+          birthDate.getUTCMonth() !== month - 1 || 
+          birthDate.getUTCDate() !== day) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid date. Please enter a valid date.' },
+          { status: 400 }
+        )
+      }
+      
+      // Validate date is not in the future
+      if (birthDate > today) {
+        return NextResponse.json(
+          { success: false, error: 'Date of birth cannot be in the future' },
+          { status: 400 }
+        )
+      }
+      
+      // Validate date is reasonable (not more than 150 years ago)
+      const minDate = new Date()
+      minDate.setFullYear(today.getFullYear() - 150)
+      minDate.setHours(0, 0, 0, 0)
+      if (birthDate < minDate) {
+        return NextResponse.json(
+          { success: false, error: 'Date of birth is too far in the past (more than 150 years ago)' },
+          { status: 400 }
+        )
+      }
+      
+      // Store DOB in ISO format (YYYY-MM-DD)
+      filteredUpdateData.dob = normalizedDate
+      
+      // Calculate age
+      let age = today.getFullYear() - birthDate.getFullYear()
+      const monthDiff = today.getMonth() - birthDate.getMonth()
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--
+      }
+      
+      // Validate calculated age is reasonable
+      if (age < 0 || age > 150) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid age calculated from date of birth' },
+          { status: 400 }
+        )
+      }
+      
+      filteredUpdateData.age = age
+    }
+
+    // Validate age if provided directly (without DOB)
+    if (filteredUpdateData.age !== undefined && !filteredUpdateData.dob) {
+      const ageNum = typeof filteredUpdateData.age === 'number' 
+        ? filteredUpdateData.age 
+        : parseInt(String(filteredUpdateData.age))
+      
+      if (isNaN(ageNum) || ageNum < 0 || ageNum > 150) {
+        return NextResponse.json(
+          { success: false, error: 'Age must be a number between 0 and 150' },
+          { status: 400 }
+        )
+      }
+      filteredUpdateData.age = ageNum
+    }
+
+    // Add updatedAt timestamp
+    filteredUpdateData.updatedAt = new Date()
+
+    // Update the user using the same query we used to find the user
+    const result = await usersCollection.updateOne(
+      query,
+      { $set: filteredUpdateData }
+    )
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    // Fetch and return the updated user (without password)
+    const updatedUser = await usersCollection.findOne(query)
+    if (!updatedUser) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to fetch updated user' },
+        { status: 500 }
+      )
+    }
+
+    const userWithoutPassword = { ...updatedUser }
+    delete userWithoutPassword.password
+
+    return NextResponse.json(
+      { success: true, data: userWithoutPassword },
+      { status: 200 }
+    )
+  } catch (error) {
+    console.error('Error updating user profile:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    
+    // Provide more specific error messages
+    if (errorMessage.includes('pattern') || errorMessage.includes('validation') || errorMessage.includes('format')) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid data format. Please ensure all fields are in the correct format.' },
+        { status: 400 }
+      )
+    }
+    
+    return NextResponse.json(
+      { success: false, error: `Failed to update profile: ${errorMessage}` },
+      { status: 500 }
+    )
+  }
+}
