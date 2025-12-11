@@ -559,8 +559,8 @@ select option:checked {
 .header {
   background: linear-gradient(135deg, var(--navy-blue) 0%, var(--ashoka-blue) 50%, var(--blue-light) 100%);
   color: var(--white);
-  padding: 0 30px;
-  height: 70px;
+  padding: 0 20px;
+  min-height: 70px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -569,12 +569,17 @@ select option:checked {
   z-index: 100;
   box-shadow: var(--shadow-lg), 0 0 20px rgba(0, 102, 204, 0.3);
   border-bottom: 3px solid var(--saffron);
+  overflow: hidden;
+  flex-wrap: nowrap;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 40px;
+  gap: 20px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .logo {
@@ -583,18 +588,30 @@ select option:checked {
   gap: 12px;
   font-size: 1.5rem;
   font-weight: 700;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .nav {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  min-width: 0;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.nav::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .nav-link {
   color: rgba(255, 255, 255, 0.9);
   text-decoration: none;
-  padding: 10px 20px;
+  padding: 8px 12px;
   border-radius: var(--radius);
   transition: all 0.3s ease;
   font-weight: 500;
@@ -606,6 +623,8 @@ select option:checked {
   justify-content: center;
   min-height: 40px;
   line-height: 1.4;
+  flex-shrink: 0;
+  font-size: 0.9rem;
 }
 
 .nav-link:hover {
@@ -620,7 +639,7 @@ select option:checked {
   box-shadow: 0 4px 12px rgba(255, 107, 0, 0.5);
   font-weight: 600;
   border: none !important;
-  padding: 10px 20px;
+  padding: 8px 12px;
   width: auto;
   height: auto;
 }
@@ -628,11 +647,14 @@ select option:checked {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 15px;
+  flex-shrink: 0;
+  min-width: fit-content;
+  margin-left: 15px;
 }
 
 .user-info {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   opacity: 0.95;
   color: var(--white);
   white-space: nowrap;
@@ -642,6 +664,7 @@ select option:checked {
   flex-direction: column;
   align-items: flex-end;
   line-height: 1.4;
+  max-width: 200px;
 }
 
 #user-info {
@@ -660,11 +683,13 @@ select option:checked {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: 10px 20px;
+  padding: 8px 16px;
   min-height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.9rem;
 }
 
 .header-right .btn-outline:hover {
@@ -1433,20 +1458,48 @@ select option:checked {
 
 @media (max-width: 768px) {
   .header {
-    flex-direction: column;
-    height: auto;
-    padding: 15px;
-    gap: 15px;
+    flex-direction: row;
+    min-height: auto;
+    padding: 10px 15px;
+    gap: 10px;
+    flex-wrap: wrap;
   }
 
   .header-left {
-    flex-direction: column;
-    gap: 15px;
+    flex: 1;
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .logo {
+    font-size: 1.2rem;
   }
 
   .nav {
-    flex-wrap: wrap;
-    justify-content: center;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 2px;
+  }
+
+  .nav-link {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+  }
+
+  .header-right {
+    flex-shrink: 0;
+    gap: 10px;
+    margin-left: 10px;
+  }
+
+  .user-info {
+    font-size: 0.8rem;
+    max-width: 150px;
+  }
+
+  .header-right .btn-outline {
+    padding: 6px 12px;
+    font-size: 0.85rem;
   }
 
   .page-content {

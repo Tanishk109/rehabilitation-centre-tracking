@@ -2789,7 +2789,7 @@ export default function Home() {
               <p><strong>Demo Credentials:</strong></p>
               <p>Super Admin: admin@rehab.gov.in</p>
               <p>password: admin123</p>
-              <p>Centre Admin: anil.deshmukh@rehab.gov.in</p>
+              <p>Centre Admin: aditi123@gmail.com</p>
               <p>password: admin123</p>
             </div>
             <div style={{ textAlign: "center", marginTop: "20px", paddingTop: "20px", borderTop: "1px solid var(--gray-200)" }}>
