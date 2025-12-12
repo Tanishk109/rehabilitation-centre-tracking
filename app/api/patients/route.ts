@@ -142,7 +142,8 @@ export async function POST(request: NextRequest) {
     body.createdAt = new Date()
     body.updatedAt = new Date()
 
-    const { role: _, centreId: __, ...patientData } = body
+    // Remove role from patientData (it's only for validation), but KEEP centreId
+    const { role: _, ...patientData } = body
     const result = await patientsCollection.insertOne(patientData)
     
     return NextResponse.json(
@@ -220,7 +221,8 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const { id: patientId, role: _, centreId: __, ...updateData } = body
+    // Remove role from updateData (it's only for validation), but KEEP centreId
+    const { id: patientId, role: _, ...updateData } = body
     updateData.updatedAt = new Date()
 
     const result = await patientsCollection.updateOne(

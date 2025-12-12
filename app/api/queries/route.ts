@@ -107,7 +107,8 @@ export async function POST(request: NextRequest) {
     body.responses = []
     body.updatedAt = new Date()
 
-    const { role: _, centreId: __, createdBy: ___, ...queryData } = body
+    // Remove role and createdBy from queryData (they're only for validation), but KEEP centreId
+    const { role: _, createdBy: ___, ...queryData } = body
     const result = await queriesCollection.insertOne(queryData)
     
     return NextResponse.json(
