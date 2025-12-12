@@ -1471,32 +1471,24 @@ export default function Home() {
 
     try {
       const age = calculateAge((formData.dob as string) || "")
-      // Build patient data - ensure role and centreId are included
+      
+      // Determine centreId: Centre admin always uses their own, super admin uses form selection
+      const centreId = currentUser?.role === "centre_admin"
+        ? currentUser.centreId
+        : formData.centreId
+
+      // Validate centreId before proceeding
+      if (!centreId) {
+        alert("Centre ID is required. Please select a centre.")
+        return
+      }
+
+      // Build patient data - ensure centreId is always set correctly
       const patientData: Record<string, unknown> = {
         ...formData,
         age,
         role: currentUser?.role || "",
-      }
-      
-      // Force centre assignment: Ensure centreId is ALWAYS set correctly
-      if (currentUser?.role === "centre_admin") {
-        if (!currentUser.centreId) {
-          alert("Error: Centre ID not found. Please contact support.")
-          return
-        }
-        // Force centre admin's centreId - never rely on formData
-        patientData.centreId = currentUser.centreId
-      } else {
-        // Super admin uses formData.centreId
-        patientData.centreId = formData.centreId
-      }
-
-      // Ensure centreId is set for super admin
-      if (currentUser?.role === "super_admin") {
-        if (!patientData.centreId || patientData.centreId === "" || patientData.centreId === "undefined" || patientData.centreId === "null") {
-          alert("Centre ID is required. Please select a centre.")
-          return
-        }
+        centreId, // Use the guaranteed centreId value
       }
 
       if (isEdit && patientId) {
@@ -1515,9 +1507,9 @@ export default function Home() {
         if (response.success) {
           // Refresh data FIRST to ensure new patient appears immediately
           await fetchAllData()
-          // Then clear form data and close modal
-          setFormData({})
+          // Then close modal and clear form data
           closeModal()
+          setFormData({})
           alert("Patient created successfully!")
         } else {
           alert(response.error || "Failed to create patient")
@@ -1558,22 +1550,18 @@ export default function Home() {
   }
 
   const saveQuery = async () => {
-    let centreIdToUse = formData.centreId
+    // Determine centreId: Centre admin always uses their own, super admin uses form selection
+    const centreId = currentUser?.role === "centre_admin"
+      ? currentUser.centreId
+      : formData.centreId
 
-    // Centre admin should ALWAYS use their own centreId
-    if (currentUser?.role === "centre_admin") {
-      if (!currentUser.centreId) {
-        alert("Error: Centre ID not found. Please contact support.")
-        return
-      }
-      centreIdToUse = currentUser.centreId
-    }
-
-    // Validation
-    if (!centreIdToUse) {
+    // Validate centreId before proceeding
+    if (!centreId) {
       alert("Centre ID is required for queries.")
       return
     }
+    
+    // Validate subject
     if (!formData.subject || !String(formData.subject).trim()) {
       alert("Subject is required")
       return
@@ -1582,16 +1570,16 @@ export default function Home() {
     try {
       const response = await queriesAPI.create({
         ...formData,
-        centreId: centreIdToUse,      // FIXED: Always use the guaranteed centreId
+        centreId, // Use the guaranteed centreId value
         createdBy: currentUser?.name ?? "",
         role: currentUser?.role,
       })
       if (response.success) {
         // Refresh data FIRST to ensure new query appears immediately
         await fetchAllData()
-        // Then clear form data and close modal
-        setFormData({})
+        // Then close modal and clear form data
         closeModal()
+        setFormData({})
         alert("Query submitted successfully!")
       } else {
         alert(response.error || "Failed to submit query")
@@ -1811,16 +1799,12 @@ export default function Home() {
   const CentreForm = ({ centre }: { centre?: Centre }) => {
     const nameInputRef = useRef<HTMLInputElement>(null)
     
-    // Focus first input only once when form mounts (not on every re-render)
+    // Focus first input only once when modal opens (prevents jumping on re-render)
     useEffect(() => {
-      if (!centre && nameInputRef.current) {
-        // Small delay to ensure modal is fully rendered
-        const timer = setTimeout(() => {
-          nameInputRef.current?.focus()
-        }, 100)
-        return () => clearTimeout(timer)
+      if (modalOpen && !centre && nameInputRef.current) {
+        nameInputRef.current.focus()
       }
-      // Empty dependency array → runs only once on mount
+      // Empty dependency array → runs only once on mount, prevents re-focus on every keystroke
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
     
@@ -1961,16 +1945,12 @@ export default function Home() {
       currentUser?.role === "centre_admin" ? centres.filter((c) => c.id === currentUser.centreId) : centres
     const nameInputRef = useRef<HTMLInputElement>(null)
     
-    // Focus first input only once when form mounts (not on every re-render)
+    // Focus first input only once when modal opens (prevents jumping on re-render)
     useEffect(() => {
-      if (!patient && nameInputRef.current) {
-        // Small delay to ensure modal is fully rendered
-        const timer = setTimeout(() => {
-          nameInputRef.current?.focus()
-        }, 100)
-        return () => clearTimeout(timer)
+      if (modalOpen && !patient && nameInputRef.current) {
+        nameInputRef.current.focus()
       }
-      // Empty dependency array → runs only once on mount
+      // Empty dependency array → runs only once on mount, prevents re-focus on every keystroke
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
     
@@ -2187,15 +2167,14 @@ export default function Home() {
       currentUser?.role === "centre_admin" ? centres.filter((c) => c.id === currentUser.centreId) : centres
     const subjectInputRef = useRef<HTMLInputElement>(null)
     
-    // Focus subject input only when form first opens
+    // Focus subject input only once when modal opens (prevents jumping on re-render)
     useEffect(() => {
-      if (subjectInputRef.current) {
-        const timer = setTimeout(() => {
-          subjectInputRef.current?.focus()
-        }, 100)
-        return () => clearTimeout(timer)
+      if (modalOpen && subjectInputRef.current) {
+        subjectInputRef.current.focus()
       }
-    }, []) // Only run once when component mounts
+      // Empty dependency array → runs only once on mount, prevents re-focus on every keystroke
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
     
     return (
       <form
@@ -2388,16 +2367,12 @@ export default function Home() {
   const MedicationForm = ({ patientId }: { patientId: string }) => {
     const nameInputRef = useRef<HTMLInputElement>(null)
     
-    // Focus first input only once when form mounts (not on every re-render)
+    // Focus first input only once when modal opens (prevents jumping on re-render)
     useEffect(() => {
-      if (nameInputRef.current) {
-        // Small delay to ensure modal is fully rendered
-        const timer = setTimeout(() => {
-          nameInputRef.current?.focus()
-        }, 100)
-        return () => clearTimeout(timer)
+      if (modalOpen && nameInputRef.current) {
+        nameInputRef.current.focus()
       }
-      // Empty dependency array → runs only once on mount
+      // Empty dependency array → runs only once on mount, prevents re-focus on every keystroke
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
     
