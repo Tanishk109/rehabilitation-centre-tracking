@@ -1476,16 +1476,19 @@ export default function Home() {
         ...formData,
         age,
         role: currentUser?.role || "",
-        centreId: currentUser?.role === "centre_admin" ? currentUser.centreId : (formData.centreId as string),
       }
       
-      // Ensure centreId is set for centre admin
+      // Force centre assignment: Ensure centreId is ALWAYS set correctly
       if (currentUser?.role === "centre_admin") {
         if (!currentUser.centreId) {
           alert("Error: Centre ID not found. Please contact support.")
           return
         }
+        // Force centre admin's centreId - never rely on formData
         patientData.centreId = currentUser.centreId
+      } else {
+        // Super admin uses formData.centreId
+        patientData.centreId = formData.centreId
       }
 
       // Ensure centreId is set for super admin
@@ -1510,11 +1513,11 @@ export default function Home() {
       } else {
         const response = await patientsAPI.create(patientData)
         if (response.success) {
-          // Clear form data first
+          // Refresh data FIRST to ensure new patient appears immediately
+          await fetchAllData()
+          // Then clear form data and close modal
           setFormData({})
           closeModal()
-          // Refresh data and ensure UI updates immediately
-          await fetchAllData()
           alert("Patient created successfully!")
         } else {
           alert(response.error || "Failed to create patient")
@@ -1555,28 +1558,40 @@ export default function Home() {
   }
 
   const saveQuery = async () => {
-    // Access control: Centre admin can only create queries for their centre
+    let centreIdToUse = formData.centreId
+
+    // Centre admin should ALWAYS use their own centreId
     if (currentUser?.role === "centre_admin") {
       if (!currentUser.centreId) {
         alert("Error: Centre ID not found. Please contact support.")
         return
       }
-      formData.centreId = currentUser.centreId
+      centreIdToUse = currentUser.centreId
+    }
+
+    // Validation
+    if (!centreIdToUse) {
+      alert("Centre ID is required for queries.")
+      return
+    }
+    if (!formData.subject || !String(formData.subject).trim()) {
+      alert("Subject is required")
+      return
     }
 
     try {
       const response = await queriesAPI.create({
         ...formData,
-        createdBy: currentUser?.name || "",
+        centreId: centreIdToUse,      // FIXED: Always use the guaranteed centreId
+        createdBy: currentUser?.name ?? "",
         role: currentUser?.role,
-        centreId: currentUser?.role === "centre_admin" ? currentUser.centreId : formData.centreId,
       })
       if (response.success) {
-        // Clear form data first
+        // Refresh data FIRST to ensure new query appears immediately
+        await fetchAllData()
+        // Then clear form data and close modal
         setFormData({})
         closeModal()
-        // Refresh data and ensure UI updates immediately
-        await fetchAllData()
         alert("Query submitted successfully!")
       } else {
         alert(response.error || "Failed to submit query")
