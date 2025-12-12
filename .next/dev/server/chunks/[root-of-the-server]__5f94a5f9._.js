@@ -58,17 +58,24 @@ __turbopack_context__.s([
 ]);
 var __TURBOPACK__imported__module__$5b$externals$5d2f$mongodb__$5b$external$5d$__$28$mongodb$2c$__cjs$29$__ = __turbopack_context__.i("[externals]/mongodb [external] (mongodb, cjs)");
 ;
-// Default connection string if not in env (for scripts)
+// Default connection string if not in env (for scripts and fallback)
 const defaultUri = 'mongodb+srv://necks:fdLaWizvRAmTYvdG@cluster0.ebmc6q3.mongodb.net/rehabilitation-centre-tracking?retryWrites=true&w=majority&appName=Cluster0';
-if (!process.env.MONGODB_URI && ("TURBOPACK compile-time value", "undefined") === 'undefined') {
-    // Only set default in server-side context
-    process.env.MONGODB_URI = defaultUri;
-}
-if (!process.env.MONGODB_URI) {
-    throw new Error('Please add your Mongo URI to .env.local');
-}
-const uri = process.env.MONGODB_URI;
-const options = {};
+// Get MongoDB URI from environment or use default
+let uri;
+if (process.env.MONGODB_URI) {
+    uri = process.env.MONGODB_URI;
+} else if ("TURBOPACK compile-time truthy", 1) {
+    // Server-side: use default if not set (for scripts and development)
+    uri = defaultUri;
+    console.warn('⚠️  MONGODB_URI not set, using default connection string');
+} else //TURBOPACK unreachable
+;
+const options = {
+    // Add connection options for better reliability
+    maxPoolSize: 10,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000
+};
 let client;
 let clientPromise;
 if ("TURBOPACK compile-time truthy", 1) {
@@ -84,8 +91,17 @@ if ("TURBOPACK compile-time truthy", 1) {
 ;
 const __TURBOPACK__default__export__ = clientPromise;
 async function getDatabase() {
-    const client = await clientPromise;
-    return client.db('rehabilitation-centre-tracking');
+    try {
+        const client = await clientPromise;
+        // Test the connection
+        await client.db('admin').command({
+            ping: 1
+        });
+        return client.db('rehabilitation-centre-tracking');
+    } catch (error) {
+        console.error('❌ MongoDB connection error:', error);
+        throw new Error(`Failed to connect to MongoDB: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 }
 }),
 "[project]/app/api/queries/route.ts [app-route] (ecmascript)", ((__turbopack_context__) => {
@@ -163,30 +179,71 @@ async function POST(request) {
         const { role, centreId: userCentreId, createdBy } = body;
         // Centre admin can only create queries for their centre
         if (role === 'centre_admin') {
+            if (!userCentreId || userCentreId === 'undefined' || userCentreId === 'null') {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Centre ID is required for centre admin. Please ensure you are logged in correctly.'
+                }, {
+                    status: 400
+                });
+            }
             body.centreId = userCentreId;
+        } else if (role === 'super_admin' && !body.centreId) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'Centre ID is required'
+            }, {
+                status: 400
+            });
         }
         // Get centre name
         const centre = await centresCollection.findOne({
             id: body.centreId
         });
         body.centreName = centre?.name || '';
-        // Generate ID if not provided
+        // Generate unique ID if not provided
         if (!body.id) {
-            const count = await queriesCollection.countDocuments();
-            body.id = `QRY${String(count + 1).padStart(3, '0')}`;
+            // Find the highest existing query number to ensure uniqueness
+            const existingQueries = await queriesCollection.find({
+                id: {
+                    $regex: /^QRY-?\d+$/
+                }
+            }).sort({
+                id: -1
+            }).limit(1).toArray();
+            let nextNumber = 1;
+            if (existingQueries.length > 0 && existingQueries[0].id) {
+                // Extract number from existing ID (e.g., QRY-00123 -> 123 or QRY123 -> 123)
+                const match = existingQueries[0].id.match(/\d+/);
+                if (match) {
+                    nextNumber = parseInt(match[0], 10) + 1;
+                }
+            }
+            // Format as QRY-XXXXX (5 digits for better scalability)
+            body.id = `QRY-${String(nextNumber).padStart(5, '0')}`;
+            // Double-check uniqueness (in case of race conditions)
+            const existing = await queriesCollection.findOne({
+                id: body.id
+            });
+            if (existing) {
+                // If exists, increment and try again
+                body.id = `QRY-${String(nextNumber + 1).padStart(5, '0')}`;
+            }
         }
         body.createdBy = createdBy || 'Unknown';
         body.createdAt = new Date().toISOString().split('T')[0];
         body.responses = [];
         body.updatedAt = new Date();
-        const { role: _, centreId: __, createdBy: ___, ...queryData } = body;
+        // Remove role from queryData (it's only for validation), but KEEP centreId and createdBy
+        const { role: _, ...queryData } = body;
         const result = await queriesCollection.insertOne(queryData);
+        // Fetch the inserted document to ensure all fields are properly formatted by MongoDB
+        const insertedQuery = await queriesCollection.findOne({
+            _id: result.insertedId
+        });
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
             success: true,
-            data: {
-                ...queryData,
-                _id: result.insertedId
-            }
+            data: insertedQuery
         }, {
             status: 201
         });
@@ -267,13 +324,23 @@ async function PATCH(request) {
             });
         }
         // Centre admin can only respond to queries from their centre
-        if (role === 'centre_admin' && query.centreId !== userCentreId) {
-            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-                success: false,
-                error: 'Unauthorized: You can only respond to queries from your centre'
-            }, {
-                status: 403
-            });
+        if (role === 'centre_admin') {
+            if (!userCentreId || userCentreId === 'undefined' || userCentreId === 'null') {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Centre ID is required for centre admin. Please ensure you are logged in correctly.'
+                }, {
+                    status: 400
+                });
+            }
+            if (query.centreId !== userCentreId) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Unauthorized: You can only respond to queries from your centre'
+                }, {
+                    status: 403
+                });
+            }
         }
         // Generate response ID
         const responseId = `RES${String(query.responses.length + 1).padStart(3, '0')}`;

@@ -58,17 +58,24 @@ __turbopack_context__.s([
 ]);
 var __TURBOPACK__imported__module__$5b$externals$5d2f$mongodb__$5b$external$5d$__$28$mongodb$2c$__cjs$29$__ = __turbopack_context__.i("[externals]/mongodb [external] (mongodb, cjs)");
 ;
-// Default connection string if not in env (for scripts)
+// Default connection string if not in env (for scripts and fallback)
 const defaultUri = 'mongodb+srv://necks:fdLaWizvRAmTYvdG@cluster0.ebmc6q3.mongodb.net/rehabilitation-centre-tracking?retryWrites=true&w=majority&appName=Cluster0';
-if (!process.env.MONGODB_URI && ("TURBOPACK compile-time value", "undefined") === 'undefined') {
-    // Only set default in server-side context
-    process.env.MONGODB_URI = defaultUri;
-}
-if (!process.env.MONGODB_URI) {
-    throw new Error('Please add your Mongo URI to .env.local');
-}
-const uri = process.env.MONGODB_URI;
-const options = {};
+// Get MongoDB URI from environment or use default
+let uri;
+if (process.env.MONGODB_URI) {
+    uri = process.env.MONGODB_URI;
+} else if ("TURBOPACK compile-time truthy", 1) {
+    // Server-side: use default if not set (for scripts and development)
+    uri = defaultUri;
+    console.warn('⚠️  MONGODB_URI not set, using default connection string');
+} else //TURBOPACK unreachable
+;
+const options = {
+    // Add connection options for better reliability
+    maxPoolSize: 10,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000
+};
 let client;
 let clientPromise;
 if ("TURBOPACK compile-time truthy", 1) {
@@ -84,8 +91,17 @@ if ("TURBOPACK compile-time truthy", 1) {
 ;
 const __TURBOPACK__default__export__ = clientPromise;
 async function getDatabase() {
-    const client = await clientPromise;
-    return client.db('rehabilitation-centre-tracking');
+    try {
+        const client = await clientPromise;
+        // Test the connection
+        await client.db('admin').command({
+            ping: 1
+        });
+        return client.db('rehabilitation-centre-tracking');
+    } catch (error) {
+        console.error('❌ MongoDB connection error:', error);
+        throw new Error(`Failed to connect to MongoDB: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 }
 }),
 "[project]/app/api/orders/route.ts [app-route] (ecmascript)", ((__turbopack_context__) => {
@@ -167,6 +183,96 @@ async function POST(request) {
                 status: 403
             });
         }
+        // Validate required fields
+        if (!body.subject || !body.subject.trim()) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'Subject is required'
+            }, {
+                status: 400
+            });
+        }
+        if (!body.instruction || !body.instruction.trim()) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'Instruction is required'
+            }, {
+                status: 400
+            });
+        }
+        if (!body.deadline || !body.deadline.trim()) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'Deadline is required'
+            }, {
+                status: 400
+            });
+        }
+        if (!body.priority) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'Priority is required'
+            }, {
+                status: 400
+            });
+        }
+        // Validate and normalize deadline format (DD/MM/YYYY)
+        let deadline = body.deadline.trim();
+        const ddmmyyyyRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+        const match = deadline.match(ddmmyyyyRegex);
+        if (!match) {
+            // Try to parse YYYY-MM-DD format (backward compatibility)
+            const yyyymmddRegex = /^(\d{4})-(\d{2})-(\d{2})$/;
+            const yyyyMatch = deadline.match(yyyymmddRegex);
+            if (yyyyMatch) {
+                const [, year, month, day] = yyyyMatch;
+                deadline = `${day}/${month}/${year}`;
+            } else {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Invalid deadline format. Please use DD/MM/YYYY format (e.g., 15/05/2024).'
+                }, {
+                    status: 400
+                });
+            }
+        } else {
+            // Normalize DD/MM/YYYY format
+            const [, day, month, year] = match;
+            deadline = `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+        }
+        // Validate date components
+        const dateParts = deadline.split('/');
+        if (dateParts.length === 3) {
+            const day = parseInt(dateParts[0], 10);
+            const month = parseInt(dateParts[1], 10);
+            const year = parseInt(dateParts[2], 10);
+            if (month < 1 || month > 12) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Invalid month in deadline. Month must be between 1 and 12.'
+                }, {
+                    status: 400
+                });
+            }
+            if (day < 1 || day > 31) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Invalid day in deadline. Day must be between 1 and 31.'
+                }, {
+                    status: 400
+                });
+            }
+            // Validate date is valid
+            const deadlineDate = new Date(year, month - 1, day);
+            if (deadlineDate.getDate() !== day || deadlineDate.getMonth() !== month - 1 || deadlineDate.getFullYear() !== year) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Invalid deadline date. Please enter a valid date.'
+                }, {
+                    status: 400
+                });
+            }
+        }
         // Get centre name if targetCentreId is provided
         if (body.targetCentreId) {
             const centre = await centresCollection.findOne({
@@ -176,13 +282,40 @@ async function POST(request) {
         } else {
             body.targetCentreName = 'All Centres';
         }
-        // Generate ID if not provided
+        // Generate unique ID if not provided
         if (!body.id) {
-            const count = await ordersCollection.countDocuments();
-            body.id = `ORD${String(count + 1).padStart(3, '0')}`;
+            // Find the highest existing order number to ensure uniqueness
+            // Support both formats: ORD-XXXXX and ORD00123
+            const existingOrders = await ordersCollection.find({
+                id: {
+                    $regex: /^ORD/
+                }
+            }).sort({
+                id: -1
+            }).limit(1).toArray();
+            let nextNumber = 1;
+            if (existingOrders.length > 0 && existingOrders[0].id) {
+                // Extract number from existing ID (e.g., ORD-00123 -> 123, ORD00123 -> 123)
+                const match = existingOrders[0].id.match(/\d+/);
+                if (match) {
+                    nextNumber = parseInt(match[0], 10) + 1;
+                }
+            }
+            // Format as ORD-XXXXX (5 digits for better scalability)
+            body.id = `ORD-${String(nextNumber).padStart(5, '0')}`;
+            // Double-check uniqueness (in case of race conditions)
+            const existing = await ordersCollection.findOne({
+                id: body.id
+            });
+            if (existing) {
+                // If exists, increment and try again
+                body.id = `ORD-${String(nextNumber + 1).padStart(5, '0')}`;
+            }
         }
         body.issuedBy = issuedBy || 'Unknown';
         body.issuedAt = new Date().toISOString().split('T')[0];
+        body.deadline = deadline; // Use normalized deadline
+        body.status = body.status || 'issued'; // Default to 'issued' if not provided
         body.acknowledgements = [];
         body.updatedAt = new Date();
         const { role: _, issuedBy: __, ...orderData } = body;
@@ -226,6 +359,14 @@ async function PUT(request) {
         }
         // Centre admin can only update orders for their centre
         if (role === 'centre_admin') {
+            if (!userCentreId || userCentreId === 'undefined' || userCentreId === 'null') {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Centre ID is required for centre admin. Please ensure you are logged in correctly.'
+                }, {
+                    status: 400
+                });
+            }
             if (order.targetCentreId !== null && order.targetCentreId !== userCentreId) {
                 return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
                     success: false,
@@ -289,6 +430,14 @@ async function PATCH(request) {
         }
         // Centre admin can only acknowledge orders for their centre
         if (role === 'centre_admin') {
+            if (!userCentreId || userCentreId === 'undefined' || userCentreId === 'null') {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Centre ID is required for centre admin. Please ensure you are logged in correctly.'
+                }, {
+                    status: 400
+                });
+            }
             if (order.targetCentreId !== null && order.targetCentreId !== userCentreId) {
                 return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
                     success: false,

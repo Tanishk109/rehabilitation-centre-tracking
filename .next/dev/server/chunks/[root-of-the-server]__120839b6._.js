@@ -58,17 +58,24 @@ __turbopack_context__.s([
 ]);
 var __TURBOPACK__imported__module__$5b$externals$5d2f$mongodb__$5b$external$5d$__$28$mongodb$2c$__cjs$29$__ = __turbopack_context__.i("[externals]/mongodb [external] (mongodb, cjs)");
 ;
-// Default connection string if not in env (for scripts)
+// Default connection string if not in env (for scripts and fallback)
 const defaultUri = 'mongodb+srv://necks:fdLaWizvRAmTYvdG@cluster0.ebmc6q3.mongodb.net/rehabilitation-centre-tracking?retryWrites=true&w=majority&appName=Cluster0';
-if (!process.env.MONGODB_URI && ("TURBOPACK compile-time value", "undefined") === 'undefined') {
-    // Only set default in server-side context
-    process.env.MONGODB_URI = defaultUri;
-}
-if (!process.env.MONGODB_URI) {
-    throw new Error('Please add your Mongo URI to .env.local');
-}
-const uri = process.env.MONGODB_URI;
-const options = {};
+// Get MongoDB URI from environment or use default
+let uri;
+if (process.env.MONGODB_URI) {
+    uri = process.env.MONGODB_URI;
+} else if ("TURBOPACK compile-time truthy", 1) {
+    // Server-side: use default if not set (for scripts and development)
+    uri = defaultUri;
+    console.warn('⚠️  MONGODB_URI not set, using default connection string');
+} else //TURBOPACK unreachable
+;
+const options = {
+    // Add connection options for better reliability
+    maxPoolSize: 10,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000
+};
 let client;
 let clientPromise;
 if ("TURBOPACK compile-time truthy", 1) {
@@ -84,8 +91,17 @@ if ("TURBOPACK compile-time truthy", 1) {
 ;
 const __TURBOPACK__default__export__ = clientPromise;
 async function getDatabase() {
-    const client = await clientPromise;
-    return client.db('rehabilitation-centre-tracking');
+    try {
+        const client = await clientPromise;
+        // Test the connection
+        await client.db('admin').command({
+            ping: 1
+        });
+        return client.db('rehabilitation-centre-tracking');
+    } catch (error) {
+        console.error('❌ MongoDB connection error:', error);
+        throw new Error(`Failed to connect to MongoDB: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 }
 }),
 "[externals]/crypto [external] (crypto, cjs)", ((__turbopack_context__, module, exports) => {
@@ -100,6 +116,8 @@ module.exports = mod;
 __turbopack_context__.s([
     "GET",
     ()=>GET,
+    "PATCH",
+    ()=>PATCH,
     "POST",
     ()=>POST
 ]);
@@ -186,9 +204,19 @@ async function GET(request) {
         });
     } catch (error) {
         console.error('Error fetching user:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        // Provide more helpful error messages
+        if (errorMessage.includes('MongoDB') || errorMessage.includes('connection')) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'Database connection failed. Please check server configuration.'
+            }, {
+                status: 500
+            });
+        }
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
             success: false,
-            error: 'Failed to fetch user'
+            error: `Failed to fetch user: ${errorMessage}`
         }, {
             status: 500
         });
@@ -229,6 +257,255 @@ async function POST(request) {
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
             success: false,
             error: 'Failed to create user'
+        }, {
+            status: 500
+        });
+    }
+}
+async function PATCH(request) {
+    try {
+        const db = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$mongodb$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getDatabase"])();
+        const usersCollection = db.collection('users');
+        const body = await request.json();
+        const { userId, email, ...updateData } = body;
+        if (!userId && !email) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'User ID or email is required'
+            }, {
+                status: 400
+            });
+        }
+        // Find the user to update - try by id first, then by email
+        let user = null;
+        let query = {};
+        if (userId) {
+            query = {
+                id: userId
+            };
+            user = await usersCollection.findOne(query);
+        }
+        // If not found by id, try by email
+        if (!user && email) {
+            query = {
+                email: email.toLowerCase()
+            };
+            user = await usersCollection.findOne(query);
+        }
+        if (!user) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'User not found'
+            }, {
+                status: 404
+            });
+        }
+        // Fields that can be updated through profile update
+        const allowedFields = [
+            'name',
+            'phone',
+            'dob',
+            'age',
+            'aadharNumber',
+            'address'
+        ];
+        // Filter updateData to only include allowed fields and non-empty values
+        const filteredUpdateData = {};
+        for (const field of allowedFields){
+            if (updateData[field] !== undefined && updateData[field] !== null) {
+                // Skip empty strings
+                if (typeof updateData[field] === 'string' && updateData[field].trim() === '') {
+                    continue;
+                }
+                filteredUpdateData[field] = updateData[field];
+            }
+        }
+        // Validate and calculate age if DOB is provided
+        if (filteredUpdateData.dob) {
+            let dobValue = filteredUpdateData.dob;
+            // Ensure DOB is a string
+            if (typeof dobValue !== 'string') {
+                dobValue = String(dobValue);
+            }
+            // Trim whitespace
+            dobValue = dobValue.trim();
+            // Parse DD/MM/YYYY format
+            const ddmmyyyyRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+            const match = dobValue.match(ddmmyyyyRegex);
+            if (!match) {
+                // Try to parse YYYY-MM-DD format (for backward compatibility)
+                const yyyymmddRegex = /^(\d{4})-(\d{2})-(\d{2})$/;
+                const yyyyMatch = dobValue.match(yyyymmddRegex);
+                if (yyyyMatch) {
+                    const [, year, month, day] = yyyyMatch;
+                    dobValue = `${day}/${month}/${year}`;
+                } else {
+                    return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                        success: false,
+                        error: 'Invalid date format. Please use DD/MM/YYYY format (e.g., 15/05/1990).'
+                    }, {
+                        status: 400
+                    });
+                }
+            } else {
+                // Normalize DD/MM/YYYY format
+                const [, day, month, year] = match;
+                dobValue = `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+            }
+            // Parse date for validation
+            const dateParts = dobValue.split('/');
+            if (dateParts.length !== 3) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Invalid date format. Please use DD/MM/YYYY format.'
+                }, {
+                    status: 400
+                });
+            }
+            const day = parseInt(dateParts[0], 10);
+            const month = parseInt(dateParts[1], 10);
+            const year = parseInt(dateParts[2], 10);
+            // Validate date components
+            if (isNaN(day) || isNaN(month) || isNaN(year)) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Invalid date. Please enter valid numbers.'
+                }, {
+                    status: 400
+                });
+            }
+            if (month < 1 || month > 12) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Invalid month. Month must be between 1 and 12.'
+                }, {
+                    status: 400
+                });
+            }
+            if (day < 1 || day > 31) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Invalid day. Day must be between 1 and 31.'
+                }, {
+                    status: 400
+                });
+            }
+            // Create date object for validation
+            const birthDate = new Date(year, month - 1, day);
+            // Validate date is valid (handles invalid dates like 31/02/1990)
+            if (birthDate.getDate() !== day || birthDate.getMonth() !== month - 1 || birthDate.getFullYear() !== year) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Invalid date. Please enter a valid date.'
+                }, {
+                    status: 400
+                });
+            }
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            birthDate.setHours(0, 0, 0, 0);
+            // Validate date is not in the future
+            if (birthDate > today) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Date of birth cannot be in the future'
+                }, {
+                    status: 400
+                });
+            }
+            // Validate date is reasonable (not more than 150 years ago)
+            const minDate = new Date();
+            minDate.setFullYear(today.getFullYear() - 150);
+            minDate.setHours(0, 0, 0, 0);
+            if (birthDate < minDate) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Date of birth is too far in the past (more than 150 years ago)'
+                }, {
+                    status: 400
+                });
+            }
+            // Store DOB in DD/MM/YYYY format
+            filteredUpdateData.dob = dobValue;
+            // Calculate age
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            if (monthDiff < 0 || monthDiff === 0 && today.getDate() < birthDate.getDate()) {
+                age--;
+            }
+            // Validate calculated age is reasonable
+            if (age < 0 || age > 150) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Invalid age calculated from date of birth'
+                }, {
+                    status: 400
+                });
+            }
+            filteredUpdateData.age = age;
+        }
+        // Validate age if provided directly (without DOB)
+        if (filteredUpdateData.age !== undefined && !filteredUpdateData.dob) {
+            const ageNum = typeof filteredUpdateData.age === 'number' ? filteredUpdateData.age : parseInt(String(filteredUpdateData.age));
+            if (isNaN(ageNum) || ageNum < 0 || ageNum > 150) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Age must be a number between 0 and 150'
+                }, {
+                    status: 400
+                });
+            }
+            filteredUpdateData.age = ageNum;
+        }
+        // Add updatedAt timestamp
+        filteredUpdateData.updatedAt = new Date();
+        // Update the user using the same query we used to find the user
+        const result = await usersCollection.updateOne(query, {
+            $set: filteredUpdateData
+        });
+        if (result.matchedCount === 0) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'User not found'
+            }, {
+                status: 404
+            });
+        }
+        // Fetch and return the updated user (without password)
+        const updatedUser = await usersCollection.findOne(query);
+        if (!updatedUser) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'Failed to fetch updated user'
+            }, {
+                status: 500
+            });
+        }
+        const userWithoutPassword = {
+            ...updatedUser
+        };
+        delete userWithoutPassword.password;
+        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+            success: true,
+            data: userWithoutPassword
+        }, {
+            status: 200
+        });
+    } catch (error) {
+        console.error('Error updating user profile:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        // Provide more specific error messages
+        if (errorMessage.includes('pattern') || errorMessage.includes('validation') || errorMessage.includes('format')) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'Invalid data format. Please ensure all fields are in the correct format.'
+            }, {
+                status: 400
+            });
+        }
+        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+            success: false,
+            error: `Failed to update profile: ${errorMessage}`
         }, {
             status: 500
         });

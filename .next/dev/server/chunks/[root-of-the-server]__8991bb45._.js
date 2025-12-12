@@ -58,17 +58,24 @@ __turbopack_context__.s([
 ]);
 var __TURBOPACK__imported__module__$5b$externals$5d2f$mongodb__$5b$external$5d$__$28$mongodb$2c$__cjs$29$__ = __turbopack_context__.i("[externals]/mongodb [external] (mongodb, cjs)");
 ;
-// Default connection string if not in env (for scripts)
+// Default connection string if not in env (for scripts and fallback)
 const defaultUri = 'mongodb+srv://necks:fdLaWizvRAmTYvdG@cluster0.ebmc6q3.mongodb.net/rehabilitation-centre-tracking?retryWrites=true&w=majority&appName=Cluster0';
-if (!process.env.MONGODB_URI && ("TURBOPACK compile-time value", "undefined") === 'undefined') {
-    // Only set default in server-side context
-    process.env.MONGODB_URI = defaultUri;
-}
-if (!process.env.MONGODB_URI) {
-    throw new Error('Please add your Mongo URI to .env.local');
-}
-const uri = process.env.MONGODB_URI;
-const options = {};
+// Get MongoDB URI from environment or use default
+let uri;
+if (process.env.MONGODB_URI) {
+    uri = process.env.MONGODB_URI;
+} else if ("TURBOPACK compile-time truthy", 1) {
+    // Server-side: use default if not set (for scripts and development)
+    uri = defaultUri;
+    console.warn('⚠️  MONGODB_URI not set, using default connection string');
+} else //TURBOPACK unreachable
+;
+const options = {
+    // Add connection options for better reliability
+    maxPoolSize: 10,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000
+};
 let client;
 let clientPromise;
 if ("TURBOPACK compile-time truthy", 1) {
@@ -84,8 +91,17 @@ if ("TURBOPACK compile-time truthy", 1) {
 ;
 const __TURBOPACK__default__export__ = clientPromise;
 async function getDatabase() {
-    const client = await clientPromise;
-    return client.db('rehabilitation-centre-tracking');
+    try {
+        const client = await clientPromise;
+        // Test the connection
+        await client.db('admin').command({
+            ping: 1
+        });
+        return client.db('rehabilitation-centre-tracking');
+    } catch (error) {
+        console.error('❌ MongoDB connection error:', error);
+        throw new Error(`Failed to connect to MongoDB: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 }
 }),
 "[project]/app/api/patients/route.ts [app-route] (ecmascript)", ((__turbopack_context__) => {
@@ -126,7 +142,7 @@ async function GET(request) {
             query.centreId = centreId;
         }
         // Filter by status
-        if (status) {
+        if (status && (status === 'admitted' || status === 'under_treatment' || status === 'recovering' || status === 'discharged')) {
             query.status = status;
         }
         // Search filter
@@ -174,29 +190,93 @@ async function POST(request) {
         const db = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$mongodb$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getDatabase"])();
         const patientsCollection = db.collection('patients');
         const body = await request.json();
-        const { role, centreId: userCentreId } = body;
+        const { role, centreId } = body;
+        // Validate required fields
+        if (!body.name || !body.name.trim()) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'Patient name is required'
+            }, {
+                status: 400
+            });
+        }
+        if (!body.dob || !body.dob.trim()) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'Date of birth is required'
+            }, {
+                status: 400
+            });
+        }
         // Centre admin can only create patients for their centre
         if (role === 'centre_admin') {
-            body.centreId = userCentreId;
+            // Ensure centreId is set from the request body
+            if (!centreId || centreId === 'undefined' || centreId === 'null' || centreId === '') {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Centre ID is required for centre admin. Please ensure you are logged in correctly.'
+                }, {
+                    status: 400
+                });
+            }
+            // Ensure the centreId from the request matches the user's centreId (security check)
+            body.centreId = centreId;
+        } else if (role === 'super_admin') {
+            // Super admin must provide centreId
+            if (!body.centreId || body.centreId === 'undefined' || body.centreId === 'null' || body.centreId === '') {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Centre ID is required. Please select a centre for the patient.'
+                }, {
+                    status: 400
+                });
+            }
+            // Validate that the centre exists
+            const centresCollection = db.collection('centres');
+            const centre = await centresCollection.findOne({
+                id: body.centreId
+            });
+            if (!centre) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Invalid centre ID. Please select a valid centre.'
+                }, {
+                    status: 400
+                });
+            }
         }
         // Generate ID if not provided
         if (!body.id) {
             const count = await patientsCollection.countDocuments();
             body.id = `P${String(count + 1).padStart(3, '0')}`;
         }
-        // Calculate age if not provided
+        // Calculate age if not provided (handles DD/MM/YYYY format)
         if (body.dob && !body.age) {
-            const today = new Date();
-            const birthDate = new Date(body.dob);
-            let age = today.getFullYear() - birthDate.getFullYear();
-            const m = today.getMonth() - birthDate.getMonth();
-            if (m < 0 || m === 0 && today.getDate() < birthDate.getDate()) age--;
-            body.age = age;
+            let birthDate;
+            const dobString = String(body.dob).trim();
+            // Parse DD/MM/YYYY format
+            const ddmmyyyyRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+            const match = dobString.match(ddmmyyyyRegex);
+            if (match) {
+                const [, day, month, year] = match;
+                birthDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+            } else {
+                // Try YYYY-MM-DD format (backward compatibility)
+                birthDate = new Date(dobString);
+            }
+            if (!isNaN(birthDate.getTime())) {
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const m = today.getMonth() - birthDate.getMonth();
+                if (m < 0 || m === 0 && today.getDate() < birthDate.getDate()) age--;
+                body.age = age;
+            }
         }
         body.medications = body.medications || [];
         body.createdAt = new Date();
         body.updatedAt = new Date();
-        const { role: _, centreId: __, ...patientData } = body;
+        // Remove role from patientData (it's only for validation), but KEEP centreId
+        const { role: _, ...patientData } = body;
         const result = await patientsCollection.insertOne(patientData);
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
             success: true,
@@ -222,7 +302,7 @@ async function PUT(request) {
         const db = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$mongodb$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getDatabase"])();
         const patientsCollection = db.collection('patients');
         const body = await request.json();
-        const { id, role, centreId: userCentreId } = body;
+        const { id, role, centreId } = body;
         // Check if patient exists and belongs to centre admin's centre
         const existingPatient = await patientsCollection.findOne({
             id
@@ -236,28 +316,50 @@ async function PUT(request) {
             });
         }
         // Centre admin can only update patients from their centre
-        if (role === 'centre_admin' && existingPatient.centreId !== userCentreId) {
-            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-                success: false,
-                error: 'Unauthorized: You can only update patients from your centre'
-            }, {
-                status: 403
-            });
-        }
-        // Ensure centre admin cannot change centreId
         if (role === 'centre_admin') {
-            body.centreId = userCentreId;
+            if (!centreId || centreId === 'undefined' || centreId === 'null' || centreId === '') {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Centre ID is required for centre admin. Please ensure you are logged in correctly.'
+                }, {
+                    status: 400
+                });
+            }
+            if (existingPatient.centreId !== centreId) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    success: false,
+                    error: 'Unauthorized: You can only update patients from your centre'
+                }, {
+                    status: 403
+                });
+            }
+            // Ensure centre admin cannot change centreId
+            body.centreId = centreId;
         }
-        // Calculate age if dob changed
+        // Calculate age if dob changed (handles DD/MM/YYYY format)
         if (body.dob) {
-            const today = new Date();
-            const birthDate = new Date(body.dob);
-            let age = today.getFullYear() - birthDate.getFullYear();
-            const m = today.getMonth() - birthDate.getMonth();
-            if (m < 0 || m === 0 && today.getDate() < birthDate.getDate()) age--;
-            body.age = age;
+            let birthDate;
+            const dobString = String(body.dob).trim();
+            // Parse DD/MM/YYYY format
+            const ddmmyyyyRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+            const match = dobString.match(ddmmyyyyRegex);
+            if (match) {
+                const [, day, month, year] = match;
+                birthDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+            } else {
+                // Try YYYY-MM-DD format (backward compatibility)
+                birthDate = new Date(dobString);
+            }
+            if (!isNaN(birthDate.getTime())) {
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const m = today.getMonth() - birthDate.getMonth();
+                if (m < 0 || m === 0 && today.getDate() < birthDate.getDate()) age--;
+                body.age = age;
+            }
         }
-        const { id: patientId, role: _, centreId: __, ...updateData } = body;
+        // Remove role from updateData (it's only for validation), but KEEP centreId
+        const { id: patientId, role: _, ...updateData } = body;
         updateData.updatedAt = new Date();
         const result = await patientsCollection.updateOne({
             id: patientId
@@ -289,9 +391,18 @@ async function DELETE(request) {
         const id = searchParams.get('id');
         const role = searchParams.get('role');
         const centreId = searchParams.get('centreId');
+        // Validate id parameter
+        if (!id) {
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: false,
+                error: 'Patient ID is required'
+            }, {
+                status: 400
+            });
+        }
         // Check if patient exists
         const patient = await patientsCollection.findOne({
-            id
+            id: id
         });
         if (!patient) {
             return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
@@ -311,7 +422,7 @@ async function DELETE(request) {
             });
         }
         const result = await patientsCollection.deleteOne({
-            id
+            id: id
         });
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
             success: true,

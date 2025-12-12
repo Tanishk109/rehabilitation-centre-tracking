@@ -1037,14 +1037,35 @@ export default function Home() {
       }
 
       if (patientsResult.status === 'fulfilled' && patientsResult.value.success) {
-        setPatients(patientsResult.value.data || [])
+        // Ensure all patients have required fields with defaults
+        const patientsData = (patientsResult.value.data || []).map((p: Patient) => ({
+          ...p,
+          centreId: p.centreId || '',
+          name: p.name || 'Unknown',
+          status: p.status || 'admitted',
+          medications: p.medications || [],
+        }))
+        setPatients(patientsData)
       } else {
         console.error("Error fetching patients:", patientsResult.status === 'rejected' ? patientsResult.reason : patientsResult.value)
         setPatients([])
       }
 
       if (queriesResult.status === 'fulfilled' && queriesResult.value.success) {
-        setQueries(queriesResult.value.data || [])
+        // Ensure all queries have required fields with defaults
+        const queriesData = (queriesResult.value.data || []).map((q: Query) => ({
+          ...q,
+          centreId: q.centreId || '',
+          centreName: q.centreName || 'Unknown Centre',
+          subject: q.subject || 'No Subject',
+          description: q.description || '',
+          priority: q.priority || 'medium',
+          status: q.status || 'open',
+          createdBy: q.createdBy || 'Unknown',
+          createdAt: q.createdAt || new Date().toISOString(),
+          responses: q.responses || [],
+        }))
+        setQueries(queriesData)
       } else {
         console.error("Error fetching queries:", queriesResult.status === 'rejected' ? queriesResult.reason : queriesResult.value)
         setQueries([])
@@ -1263,17 +1284,17 @@ export default function Home() {
       filtered = filtered.filter((q) => q.centreId === currentUser.centreId)
     }
     if (queryStatusFilter) {
-      filtered = filtered.filter((q) => q.status === queryStatusFilter)
+      filtered = filtered.filter((q) => (q.status || 'open') === queryStatusFilter)
     }
     if (queryPriorityFilter) {
-      filtered = filtered.filter((q) => q.priority === queryPriorityFilter)
+      filtered = filtered.filter((q) => (q.priority || 'medium') === queryPriorityFilter)
     }
     if (querySearch) {
       filtered = filtered.filter(
         (q) =>
-          q.id.toLowerCase().includes(querySearch.toLowerCase()) ||
-          q.subject.toLowerCase().includes(querySearch.toLowerCase()) ||
-          (q.centreName && q.centreName.toLowerCase().includes(querySearch.toLowerCase()))
+          (q.id || '').toLowerCase().includes(querySearch.toLowerCase()) ||
+          (q.subject || '').toLowerCase().includes(querySearch.toLowerCase()) ||
+          (q.centreName || '').toLowerCase().includes(querySearch.toLowerCase())
       )
     }
     return filtered
@@ -2617,49 +2638,62 @@ export default function Home() {
 
   const QueryDetails = ({ query }: { query: Query }) => {
     const [responseText, setResponseText] = useState("")
+    // Ensure query has all required fields with defaults
+    const safeQuery = {
+      ...query,
+      id: query.id || 'Unknown',
+      status: query.status || 'open',
+      priority: query.priority || 'medium',
+      centreName: query.centreName || 'Unknown Centre',
+      createdBy: query.createdBy || 'Unknown',
+      createdAt: query.createdAt || '',
+      subject: query.subject || 'No Subject',
+      description: query.description || '',
+      responses: query.responses || [],
+    }
     return (
       <div className="query-details">
         <div className="detail-section">
           <div className="detail-grid">
             <div className="detail-item">
               <label>Query ID</label>
-              <span>{query.id}</span>
+              <span>{safeQuery.id}</span>
             </div>
             <div className="detail-item">
               <label>Status</label>
-              <span className={`badge badge-${query.status}`}>{formatStatus(query.status)}</span>
+              <span className={`badge badge-${safeQuery.status}`}>{formatStatus(safeQuery.status)}</span>
             </div>
             <div className="detail-item">
               <label>Priority</label>
-              <span className={`badge priority-${query.priority}`}>{query.priority.toUpperCase()}</span>
+              <span className={`badge priority-${safeQuery.priority}`}>{safeQuery.priority.toUpperCase()}</span>
             </div>
             <div className="detail-item">
               <label>Centre</label>
-              <span>{query.centreName}</span>
+              <span>{safeQuery.centreName}</span>
             </div>
             <div className="detail-item">
               <label>Created By</label>
-              <span>{query.createdBy}</span>
+              <span>{safeQuery.createdBy}</span>
             </div>
             <div className="detail-item">
               <label>Created On</label>
-              <span>{formatDate(query.createdAt)}</span>
+              <span>{formatDate(safeQuery.createdAt)}</span>
             </div>
           </div>
         </div>
         <div className="detail-section">
           <h4>Subject</h4>
-          <p>{query.subject}</p>
+          <p>{safeQuery.subject}</p>
         </div>
         <div className="detail-section">
           <h4>Description</h4>
-          <p>{query.description}</p>
+          <p>{safeQuery.description}</p>
         </div>
         <div className="detail-section">
           <h4>Responses</h4>
-          {query.responses.length > 0 ? (
+          {safeQuery.responses.length > 0 ? (
             <div className="responses-list">
-              {query.responses.map((res) => (
+              {safeQuery.responses.map((res) => (
                 <div key={res.id} className={`response-item ${res.isAdmin ? "admin-response" : ""}`}>
                   <div className="response-header">
                     <strong>{res.respondedBy}</strong>
@@ -2688,7 +2722,7 @@ export default function Home() {
                 className="status-dropdown"
                 onChange={(e) => {
                   if (e.target.value) {
-                    updateQueryStatus(query.id, e.target.value as Query["status"])
+                    updateQueryStatus(safeQuery.id, e.target.value as Query["status"])
                     closeModal()
                   }
                 }}
@@ -2705,7 +2739,7 @@ export default function Home() {
               className="btn btn-primary"
               onClick={() => {
                 if (responseText.trim()) {
-                  addQueryResponse(query.id, responseText)
+                  addQueryResponse(safeQuery.id, responseText)
                   setResponseText("")
                 }
               }}
@@ -3559,15 +3593,15 @@ export default function Home() {
                       <td>
                         <strong>{q.id}</strong>
                       </td>
-                      <td>{q.subject}</td>
-                      <td>{q.centreName}</td>
+                      <td>{q.subject || 'No Subject'}</td>
+                      <td>{q.centreName || 'Unknown Centre'}</td>
                       <td>
-                        <span className={`badge priority-${q.priority}`}>{q.priority.toUpperCase()}</span>
+                        <span className={`badge priority-${q.priority || 'medium'}`}>{(q.priority || 'medium').toUpperCase()}</span>
                       </td>
                       <td>
-                        <span className={`badge badge-${q.status}`}>{formatStatus(q.status)}</span>
+                        <span className={`badge badge-${q.status || 'open'}`}>{formatStatus(q.status || 'open')}</span>
                       </td>
-                      <td>{formatDate(q.createdAt)}</td>
+                      <td>{formatDate(q.createdAt || '')}</td>
                       <td>
                         <div className="action-buttons">
                           <button

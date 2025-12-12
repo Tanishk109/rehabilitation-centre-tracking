@@ -107,12 +107,15 @@ export async function POST(request: NextRequest) {
     body.responses = []
     body.updatedAt = new Date()
 
-    // Remove role and createdBy from queryData (they're only for validation), but KEEP centreId
-    const { role: _, createdBy: ___, ...queryData } = body
+    // Remove role from queryData (it's only for validation), but KEEP centreId and createdBy
+    const { role: _, ...queryData } = body
     const result = await queriesCollection.insertOne(queryData)
     
+    // Fetch the inserted document to ensure all fields are properly formatted by MongoDB
+    const insertedQuery = await queriesCollection.findOne({ _id: result.insertedId })
+    
     return NextResponse.json(
-      { success: true, data: { ...queryData, _id: result.insertedId } },
+      { success: true, data: insertedQuery },
       { status: 201 }
     )
   } catch (error) {
