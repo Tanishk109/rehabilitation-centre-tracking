@@ -1798,15 +1798,22 @@ export default function Home() {
   // Form Components
   const CentreForm = ({ centre }: { centre?: Centre }) => {
     const nameInputRef = useRef<HTMLInputElement>(null)
+    const hasFocusedRef = useRef(false)
     
     // Focus first input only once when modal opens (prevents jumping on re-render)
     useEffect(() => {
       if (modalOpen && !centre && nameInputRef.current) {
-        nameInputRef.current.focus()
+        // Only focus if we haven't focused yet AND input doesn't already have focus
+        if (!hasFocusedRef.current && document.activeElement !== nameInputRef.current) {
+          nameInputRef.current.focus()
+          hasFocusedRef.current = true
+        }
       }
-      // Empty dependency array → runs only once on mount, prevents re-focus on every keystroke
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+      // Reset focus flag when modal closes
+      if (!modalOpen) {
+        hasFocusedRef.current = false
+      }
+    }, [modalOpen, centre])
     
     return (
     <form
@@ -1944,15 +1951,22 @@ export default function Home() {
     const availableCentres =
       currentUser?.role === "centre_admin" ? centres.filter((c) => c.id === currentUser.centreId) : centres
     const nameInputRef = useRef<HTMLInputElement>(null)
+    const hasFocusedRef = useRef(false)
     
     // Focus first input only once when modal opens (prevents jumping on re-render)
     useEffect(() => {
       if (modalOpen && !patient && nameInputRef.current) {
-        nameInputRef.current.focus()
+        // Only focus if we haven't focused yet AND input doesn't already have focus
+        if (!hasFocusedRef.current && document.activeElement !== nameInputRef.current) {
+          nameInputRef.current.focus()
+          hasFocusedRef.current = true
+        }
       }
-      // Empty dependency array → runs only once on mount, prevents re-focus on every keystroke
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+      // Reset focus flag when modal closes
+      if (!modalOpen) {
+        hasFocusedRef.current = false
+      }
+    }, [modalOpen, patient])
     
     return (
       <form
@@ -2166,15 +2180,22 @@ export default function Home() {
     const availableCentres =
       currentUser?.role === "centre_admin" ? centres.filter((c) => c.id === currentUser.centreId) : centres
     const subjectInputRef = useRef<HTMLInputElement>(null)
+    const hasFocusedRef = useRef(false)
     
     // Focus subject input only once when modal opens (prevents jumping on re-render)
     useEffect(() => {
       if (modalOpen && subjectInputRef.current) {
-        subjectInputRef.current.focus()
+        // Only focus if we haven't focused yet AND input doesn't already have focus
+        if (!hasFocusedRef.current && document.activeElement !== subjectInputRef.current) {
+          subjectInputRef.current.focus()
+          hasFocusedRef.current = true
+        }
       }
-      // Empty dependency array → runs only once on mount, prevents re-focus on every keystroke
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+      // Reset focus flag when modal closes
+      if (!modalOpen) {
+        hasFocusedRef.current = false
+      }
+    }, [modalOpen])
     
     return (
       <form
@@ -2259,16 +2280,22 @@ export default function Home() {
 
   const OrderForm = () => {
     const subjectInputRef = useRef<HTMLInputElement>(null)
+    const hasFocusedRef = useRef(false)
     
-    // Focus subject input only when form first opens
+    // Focus subject input only once when modal opens (prevents jumping on re-render)
     useEffect(() => {
-      if (subjectInputRef.current) {
-        const timer = setTimeout(() => {
-          subjectInputRef.current?.focus()
-        }, 100)
-        return () => clearTimeout(timer)
+      if (modalOpen && subjectInputRef.current) {
+        // Only focus if we haven't focused yet AND input doesn't already have focus
+        if (!hasFocusedRef.current && document.activeElement !== subjectInputRef.current) {
+          subjectInputRef.current.focus()
+          hasFocusedRef.current = true
+        }
       }
-    }, []) // Only run once when component mounts
+      // Reset focus flag when modal closes
+      if (!modalOpen) {
+        hasFocusedRef.current = false
+      }
+    }, [modalOpen])
     
     return (
     <form
@@ -2366,15 +2393,22 @@ export default function Home() {
 
   const MedicationForm = ({ patientId }: { patientId: string }) => {
     const nameInputRef = useRef<HTMLInputElement>(null)
+    const hasFocusedRef = useRef(false)
     
     // Focus first input only once when modal opens (prevents jumping on re-render)
     useEffect(() => {
       if (modalOpen && nameInputRef.current) {
-        nameInputRef.current.focus()
+        // Only focus if we haven't focused yet AND input doesn't already have focus
+        if (!hasFocusedRef.current && document.activeElement !== nameInputRef.current) {
+          nameInputRef.current.focus()
+          hasFocusedRef.current = true
+        }
       }
-      // Empty dependency array → runs only once on mount, prevents re-focus on every keystroke
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+      // Reset focus flag when modal closes
+      if (!modalOpen) {
+        hasFocusedRef.current = false
+      }
+    }, [modalOpen])
     
     return (
     <form
