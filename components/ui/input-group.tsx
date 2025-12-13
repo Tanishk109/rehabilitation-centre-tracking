@@ -22,8 +22,8 @@ function InputGroup({ className, ...props }: React.ComponentProps<'div'>) {
         'has-[>[data-align=block-start]]:h-auto has-[>[data-align=block-start]]:flex-col has-[>[data-align=block-start]]:[&>input]:pb-3',
         'has-[>[data-align=block-end]]:h-auto has-[>[data-align=block-end]]:flex-col has-[>[data-align=block-end]]:[&>input]:pt-3',
 
-        // Focus state.
-        'has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-ring/50 has-[[data-slot=input-group-control]:focus-visible]:ring-[3px]',
+        // Focus state (removed forced focus ring to prevent focus interference).
+        'has-[[data-slot=input-group-control]:focus-visible]:border-ring',
 
         // Error state.
         'has-[[data-slot][aria-invalid=true]]:ring-destructive/20 has-[[data-slot][aria-invalid=true]]:border-destructive dark:has-[[data-slot][aria-invalid=true]]:ring-destructive/40',
@@ -67,12 +67,6 @@ function InputGroupAddon({
       data-slot="input-group-addon"
       data-align={align}
       className={cn(inputGroupAddonVariants({ align }), className)}
-      onClick={(e) => {
-        if ((e.target as HTMLElement).closest('button')) {
-          return
-        }
-        e.currentTarget.parentElement?.querySelector('input')?.focus()
-      }}
       {...props}
     />
   )

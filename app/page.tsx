@@ -1830,11 +1830,18 @@ export default function Home() {
       const modalKey = centre ? `editCentre-${centre.id}` : 'addCentre'
       if (modalOpen && !centre && nameInputRef.current) {
         const shouldFocus = (modalFocusTracker.current.type !== modalKey || !modalFocusTracker.current.hasFocused) &&
-                           document.activeElement !== nameInputRef.current
+                           document.activeElement !== nameInputRef.current &&
+                           !nameInputRef.current.matches(':focus')
         
         if (shouldFocus) {
-          nameInputRef.current.focus()
-          modalFocusTracker.current = { type: modalKey, hasFocused: true }
+          // Use setTimeout to avoid interfering with user clicks
+          const timer = setTimeout(() => {
+            if (nameInputRef.current && document.activeElement !== nameInputRef.current) {
+              nameInputRef.current.focus()
+              modalFocusTracker.current = { type: modalKey, hasFocused: true }
+            }
+          }, 50)
+          return () => clearTimeout(timer)
         }
       }
     }, [modalOpen, centre])
@@ -1981,11 +1988,18 @@ export default function Home() {
       const modalKey = patient ? `editPatient-${patient.id}` : 'addPatient'
       if (modalOpen && !patient && nameInputRef.current) {
         const shouldFocus = (modalFocusTracker.current.type !== modalKey || !modalFocusTracker.current.hasFocused) &&
-                           document.activeElement !== nameInputRef.current
+                           document.activeElement !== nameInputRef.current &&
+                           !nameInputRef.current.matches(':focus')
         
         if (shouldFocus) {
-          nameInputRef.current.focus()
-          modalFocusTracker.current = { type: modalKey, hasFocused: true }
+          // Use setTimeout to avoid interfering with user clicks
+          const timer = setTimeout(() => {
+            if (nameInputRef.current && document.activeElement !== nameInputRef.current) {
+              nameInputRef.current.focus()
+              modalFocusTracker.current = { type: modalKey, hasFocused: true }
+            }
+          }, 50)
+          return () => clearTimeout(timer)
         }
       }
     }, [modalOpen, patient])
