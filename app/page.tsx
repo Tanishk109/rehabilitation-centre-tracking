@@ -1327,6 +1327,57 @@ export default function Home() {
     return filtered
   }
 
+  // Helper function to get acknowledgement status for super admin
+  const getAcknowledgementStatus = (order: Order) => {
+    if (currentUser?.role !== "super_admin") return null
+    
+    const acknowledgements = order.acknowledgements || []
+    
+    // If order is for a specific centre
+    if (order.targetCentreId) {
+      const acknowledged = acknowledgements.some(ack => ack.centreId === order.targetCentreId)
+      const centre = centres.find(c => c.id === order.targetCentreId)
+      const centreName = centre?.name || order.targetCentreId
+      
+      if (acknowledged) {
+        const ack = acknowledgements.find(ack => ack.centreId === order.targetCentreId)
+        return {
+          type: 'single',
+          acknowledged: true,
+          centreName,
+          acknowledgedBy: ack?.acknowledgedBy || 'Unknown',
+          acknowledgedAt: ack?.acknowledgedAt || ''
+        }
+      } else {
+        return {
+          type: 'single',
+          acknowledged: false,
+          centreName
+        }
+      }
+    }
+    
+    // If order is for all centres
+    const acknowledgedCentreIds = acknowledgements.map(ack => ack.centreId)
+    const allCentres = centres.filter(c => c.status === 'active')
+    const acknowledgedCentres = allCentres.filter(c => acknowledgedCentreIds.includes(c.id))
+    const pendingCentres = allCentres.filter(c => !acknowledgedCentreIds.includes(c.id))
+    
+    return {
+      type: 'all',
+      total: allCentres.length,
+      acknowledged: acknowledgedCentres.length,
+      pending: pendingCentres.length,
+      acknowledgedCentres: acknowledgedCentres.map(c => ({
+        id: c.id,
+        name: c.name,
+        acknowledgedBy: acknowledgements.find(ack => ack.centreId === c.id)?.acknowledgedBy || 'Unknown',
+        acknowledgedAt: acknowledgements.find(ack => ack.centreId === c.id)?.acknowledgedAt || ''
+      })),
+      pendingCentres: pendingCentres.map(c => ({ id: c.id, name: c.name }))
+    }
+  }
+
   // Stats
   const filteredCentresForStats =
     currentUser?.role === "centre_admin" ? centres.filter((c) => c.id === currentUser.centreId) : centres
@@ -1640,7 +1691,7 @@ export default function Home() {
       })
       if (response.success) {
         await fetchAllData() // Refresh data
-        alert("Response added successfully!")
+        // Response will be visible in the refreshed modal
       } else {
         alert(response.error || "Failed to add response")
       }
@@ -1664,6 +1715,7 @@ export default function Home() {
       })
       if (response.success) {
         await fetchAllData() // Refresh data
+        // Status change is visible in dropdown
       } else {
         alert(response.error || "Failed to update query status")
       }
@@ -2750,15 +2802,20 @@ export default function Home() {
             {currentUser?.role === "super_admin" && (
               <select
                 className="status-dropdown"
-                onChange={(e) => {
-                  if (e.target.value) {
-                    updateQueryStatus(safeQuery.id, e.target.value as Query["status"])
-                    closeModal()
+                value={safeQuery.status}
+                onChange={async (e) => {
+                  const newStatus = e.target.value as Query["status"]
+                  if (newStatus && newStatus !== safeQuery.status) {
+                    await updateQueryStatus(safeQuery.id, newStatus)
+                    // Refresh data and update modal with latest query
+                    await fetchAllData()
+                    const updatedQuery = queries.find((q) => q.id === safeQuery.id)
+                    if (updatedQuery) {
+                      setModalContent(<QueryDetails query={updatedQuery} />)
+                    }
                   }
                 }}
-                defaultValue=""
               >
-                <option value="">Change Status</option>
                 <option value="open">Open</option>
                 <option value="in_progress">In Progress</option>
                 <option value="resolved">Resolved</option>
@@ -2767,10 +2824,19 @@ export default function Home() {
             )}
             <button
               className="btn btn-primary"
-              onClick={() => {
+              onClick={async () => {
                 if (responseText.trim()) {
-                  addQueryResponse(safeQuery.id, responseText)
+                  await addQueryResponse(safeQuery.id, responseText)
                   setResponseText("")
+                  // Refresh data and update modal with latest query
+                  await fetchAllData()
+                  // Find updated query and refresh modal content
+                  const updatedQuery = queries.find((q) => q.id === safeQuery.id)
+                  if (updatedQuery) {
+                    setModalContent(<QueryDetails query={updatedQuery} />)
+                  }
+                } else {
+                  alert("Please enter a response message")
                 }
               }}
             >
@@ -3636,7 +3702,13 @@ export default function Home() {
                         <div className="action-buttons">
                           <button
                             className={`btn btn-small ${currentUser?.role === "super_admin" ? "btn-primary" : "btn-outline"}`}
-                            onClick={() => openModal(`Query: ${q.subject}`, <QueryDetails query={q} />)}
+                            onClick={async () => {
+                              // Refresh queries before opening modal to ensure latest data
+                              await fetchAllData()
+                              // Find the updated query
+                              const updatedQuery = queries.find((query) => query.id === q.id) || q
+                              openModal(`Query: ${updatedQuery.subject || q.subject}`, <QueryDetails query={updatedQuery} />)
+                            }}
                           >
                             View
                           </button>
@@ -3707,6 +3779,7 @@ export default function Home() {
                   <th>Target</th>
                   <th>Priority</th>
                   <th>Status</th>
+                  {currentUser?.role === "super_admin" && <th>Acknowledgement Status</th>}
                   <th>Deadline</th>
                   <th>Actions</th>
                 </tr>
@@ -3714,37 +3787,102 @@ export default function Home() {
               <tbody>
                 {getFilteredOrders().length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="empty-state">
+                    <td colSpan={currentUser?.role === "super_admin" ? 8 : 7} className="empty-state">
                       No orders found
                     </td>
                   </tr>
                 ) : (
-                  getFilteredOrders().map((o) => (
-                    <tr key={o.id}>
-                      <td>
-                        <strong>{o.id}</strong>
-                      </td>
-                      <td>{o.subject}</td>
-                      <td>{o.targetCentreName}</td>
-                      <td>
-                        <span className={`badge priority-${o.priority}`}>{o.priority.toUpperCase()}</span>
-                      </td>
-                      <td>
-                        <span className={`badge badge-${o.status}`}>{formatStatus(o.status)}</span>
-                      </td>
-                      <td>{formatDate(o.deadline)}</td>
-                      <td>
-                        <div className="action-buttons">
-                          <button
-                            className="btn btn-outline btn-small"
-                            onClick={() => openModal(`Order: ${o.subject}`, <OrderDetails order={o} />)}
-                          >
-                            View
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  getFilteredOrders().map((o) => {
+                    const ackStatus = getAcknowledgementStatus(o)
+                    return (
+                      <tr key={o.id}>
+                        <td>
+                          <strong>{o.id}</strong>
+                        </td>
+                        <td>{o.subject}</td>
+                        <td>{o.targetCentreName}</td>
+                        <td>
+                          <span className={`badge priority-${o.priority}`}>{o.priority.toUpperCase()}</span>
+                        </td>
+                        <td>
+                          <span className={`badge badge-${o.status}`}>{formatStatus(o.status)}</span>
+                        </td>
+                        {currentUser?.role === "super_admin" && (
+                          <td>
+                            {ackStatus && ackStatus.type === 'single' ? (
+                              ackStatus.acknowledged ? (
+                                <div style={{ fontSize: '0.85rem' }}>
+                                  <span className="badge" style={{ marginBottom: '4px', display: 'inline-block', backgroundColor: '#10b981', color: 'white' }}>
+                                    ✓ {ackStatus.centreName}
+                                  </span>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--gray-600)', marginTop: '2px' }}>
+                                    by {ackStatus.acknowledgedBy || 'Unknown'} on {formatDate(ackStatus.acknowledgedAt || '')}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="badge" style={{ backgroundColor: '#ef4444', color: 'white' }}>✗ {ackStatus.centreName} - Pending</span>
+                              )
+                            ) : ackStatus && ackStatus.type === 'all' ? (
+                              <div style={{ fontSize: '0.85rem' }}>
+                                <div style={{ marginBottom: '4px' }}>
+                                  <span className="badge" style={{ marginRight: '4px', backgroundColor: '#10b981', color: 'white' }}>
+                                    ✓ {ackStatus.acknowledged || 0}/{ackStatus.total || 0} Centres
+                                  </span>
+                                  {(ackStatus.pending || 0) > 0 && (
+                                    <span className="badge" style={{ backgroundColor: '#f59e0b', color: 'white' }}>
+                                      ⏳ {ackStatus.pending || 0} Pending
+                                    </span>
+                                  )}
+                                </div>
+                                {((ackStatus.acknowledgedCentres?.length || 0) > 0 || (ackStatus.pendingCentres?.length || 0) > 0) && (
+                                  <details style={{ fontSize: '0.75rem', marginTop: '4px' }}>
+                                    <summary style={{ cursor: 'pointer', color: 'var(--saffron)', textDecoration: 'underline' }}>
+                                      View Details ({ackStatus.acknowledged || 0} acknowledged, {ackStatus.pending || 0} pending)
+                                    </summary>
+                                    <div style={{ marginTop: '8px', padding: '8px', background: 'var(--gray-50)', borderRadius: '4px' }}>
+                                      {(ackStatus.acknowledgedCentres?.length || 0) > 0 && (
+                                        <div style={{ marginBottom: '8px' }}>
+                                          <strong style={{ color: 'var(--green)' }}>✓ Acknowledged ({ackStatus.acknowledgedCentres?.length || 0}):</strong>
+                                          {ackStatus.acknowledgedCentres?.map((c) => (
+                                            <div key={c.id} style={{ marginLeft: '12px', marginTop: '4px', fontSize: '0.7rem' }}>
+                                              • {c.name} - by {c.acknowledgedBy || 'Unknown'} on {formatDate(c.acknowledgedAt || '')}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {(ackStatus.pendingCentres?.length || 0) > 0 && (
+                                        <div>
+                                          <strong style={{ color: 'var(--red)' }}>⏳ Pending ({ackStatus.pendingCentres?.length || 0}):</strong>
+                                          {ackStatus.pendingCentres?.map((c) => (
+                                            <div key={c.id} style={{ marginLeft: '12px', marginTop: '4px', fontSize: '0.7rem' }}>
+                                              • {c.name}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </details>
+                                )}
+                              </div>
+                            ) : (
+                              <span>-</span>
+                            )}
+                          </td>
+                        )}
+                        <td>{formatDate(o.deadline)}</td>
+                        <td>
+                          <div className="action-buttons">
+                            <button
+                              className="btn btn-outline btn-small"
+                              onClick={() => openModal(`Order: ${o.subject}`, <OrderDetails order={o} />)}
+                            >
+                              View
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>
