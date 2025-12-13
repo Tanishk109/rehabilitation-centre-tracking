@@ -970,6 +970,9 @@ export default function Home() {
   const [modalContent, setModalContent] = useState<React.ReactNode>(null)
   const [modalType, setModalType] = useState<string | null>(null)
   const [modalProps, setModalProps] = useState<Record<string, unknown> | null>(null)
+  
+  // Track which modal has been focused to prevent refocus on re-renders
+  const modalFocusTracker = useRef<{ type: string | null; hasFocused: boolean }>({ type: null, hasFocused: false })
 
   // Filters
   const [centreSearch, setCentreSearch] = useState("")
@@ -1235,6 +1238,8 @@ export default function Home() {
     setModalType(null)
     setModalProps(null)
     setFormData({})
+    // Reset focus tracker when modal closes
+    modalFocusTracker.current = { type: null, hasFocused: false }
   }
 
   // Filter functions
@@ -1819,20 +1824,18 @@ export default function Home() {
   // Form Components
   const CentreForm = ({ centre }: { centre?: Centre }) => {
     const nameInputRef = useRef<HTMLInputElement>(null)
-    const hasFocusedRef = useRef(false)
     
     // Focus first input only once when modal opens (prevents jumping on re-render)
     useEffect(() => {
+      const modalKey = centre ? `editCentre-${centre.id}` : 'addCentre'
       if (modalOpen && !centre && nameInputRef.current) {
-        // Only focus if we haven't focused yet AND input doesn't already have focus
-        if (!hasFocusedRef.current && document.activeElement !== nameInputRef.current) {
+        const shouldFocus = (modalFocusTracker.current.type !== modalKey || !modalFocusTracker.current.hasFocused) &&
+                           document.activeElement !== nameInputRef.current
+        
+        if (shouldFocus) {
           nameInputRef.current.focus()
-          hasFocusedRef.current = true
+          modalFocusTracker.current = { type: modalKey, hasFocused: true }
         }
-      }
-      // Reset focus flag when modal closes
-      if (!modalOpen) {
-        hasFocusedRef.current = false
       }
     }, [modalOpen, centre])
     
@@ -1972,20 +1975,18 @@ export default function Home() {
     const availableCentres =
       currentUser?.role === "centre_admin" ? centres.filter((c) => c.id === currentUser.centreId) : centres
     const nameInputRef = useRef<HTMLInputElement>(null)
-    const hasFocusedRef = useRef(false)
     
     // Focus first input only once when modal opens (prevents jumping on re-render)
     useEffect(() => {
+      const modalKey = patient ? `editPatient-${patient.id}` : 'addPatient'
       if (modalOpen && !patient && nameInputRef.current) {
-        // Only focus if we haven't focused yet AND input doesn't already have focus
-        if (!hasFocusedRef.current && document.activeElement !== nameInputRef.current) {
+        const shouldFocus = (modalFocusTracker.current.type !== modalKey || !modalFocusTracker.current.hasFocused) &&
+                           document.activeElement !== nameInputRef.current
+        
+        if (shouldFocus) {
           nameInputRef.current.focus()
-          hasFocusedRef.current = true
+          modalFocusTracker.current = { type: modalKey, hasFocused: true }
         }
-      }
-      // Reset focus flag when modal closes
-      if (!modalOpen) {
-        hasFocusedRef.current = false
       }
     }, [modalOpen, patient])
     
@@ -2201,20 +2202,18 @@ export default function Home() {
     const availableCentres =
       currentUser?.role === "centre_admin" ? centres.filter((c) => c.id === currentUser.centreId) : centres
     const subjectInputRef = useRef<HTMLInputElement>(null)
-    const hasFocusedRef = useRef(false)
     
     // Focus subject input only once when modal opens (prevents jumping on re-render)
     useEffect(() => {
+      const modalKey = 'addQuery'
       if (modalOpen && subjectInputRef.current) {
-        // Only focus if we haven't focused yet AND input doesn't already have focus
-        if (!hasFocusedRef.current && document.activeElement !== subjectInputRef.current) {
+        const shouldFocus = (modalFocusTracker.current.type !== modalKey || !modalFocusTracker.current.hasFocused) &&
+                           document.activeElement !== subjectInputRef.current
+        
+        if (shouldFocus) {
           subjectInputRef.current.focus()
-          hasFocusedRef.current = true
+          modalFocusTracker.current = { type: modalKey, hasFocused: true }
         }
-      }
-      // Reset focus flag when modal closes
-      if (!modalOpen) {
-        hasFocusedRef.current = false
       }
     }, [modalOpen])
     
@@ -2301,20 +2300,18 @@ export default function Home() {
 
   const OrderForm = () => {
     const subjectInputRef = useRef<HTMLInputElement>(null)
-    const hasFocusedRef = useRef(false)
     
     // Focus subject input only once when modal opens (prevents jumping on re-render)
     useEffect(() => {
+      const modalKey = 'addOrder'
       if (modalOpen && subjectInputRef.current) {
-        // Only focus if we haven't focused yet AND input doesn't already have focus
-        if (!hasFocusedRef.current && document.activeElement !== subjectInputRef.current) {
+        const shouldFocus = (modalFocusTracker.current.type !== modalKey || !modalFocusTracker.current.hasFocused) &&
+                           document.activeElement !== subjectInputRef.current
+        
+        if (shouldFocus) {
           subjectInputRef.current.focus()
-          hasFocusedRef.current = true
+          modalFocusTracker.current = { type: modalKey, hasFocused: true }
         }
-      }
-      // Reset focus flag when modal closes
-      if (!modalOpen) {
-        hasFocusedRef.current = false
       }
     }, [modalOpen])
     
@@ -2414,22 +2411,20 @@ export default function Home() {
 
   const MedicationForm = ({ patientId }: { patientId: string }) => {
     const nameInputRef = useRef<HTMLInputElement>(null)
-    const hasFocusedRef = useRef(false)
     
     // Focus first input only once when modal opens (prevents jumping on re-render)
     useEffect(() => {
+      const modalKey = `addMedication-${patientId}`
       if (modalOpen && nameInputRef.current) {
-        // Only focus if we haven't focused yet AND input doesn't already have focus
-        if (!hasFocusedRef.current && document.activeElement !== nameInputRef.current) {
+        const shouldFocus = (modalFocusTracker.current.type !== modalKey || !modalFocusTracker.current.hasFocused) &&
+                           document.activeElement !== nameInputRef.current
+        
+        if (shouldFocus) {
           nameInputRef.current.focus()
-          hasFocusedRef.current = true
+          modalFocusTracker.current = { type: modalKey, hasFocused: true }
         }
       }
-      // Reset focus flag when modal closes
-      if (!modalOpen) {
-        hasFocusedRef.current = false
-      }
-    }, [modalOpen])
+    }, [modalOpen, patientId])
     
     return (
     <form
