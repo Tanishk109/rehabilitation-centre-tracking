@@ -2222,11 +2222,18 @@ export default function Home() {
       const modalKey = 'addQuery'
       if (modalOpen && subjectInputRef.current) {
         const shouldFocus = (modalFocusTracker.current.type !== modalKey || !modalFocusTracker.current.hasFocused) &&
-                           document.activeElement !== subjectInputRef.current
+                           document.activeElement !== subjectInputRef.current &&
+                           !subjectInputRef.current.matches(':focus')
         
         if (shouldFocus) {
-          subjectInputRef.current.focus()
-          modalFocusTracker.current = { type: modalKey, hasFocused: true }
+          // Use setTimeout to avoid interfering with user clicks
+          const timer = setTimeout(() => {
+            if (subjectInputRef.current && document.activeElement !== subjectInputRef.current) {
+              subjectInputRef.current.focus()
+              modalFocusTracker.current = { type: modalKey, hasFocused: true }
+            }
+          }, 50)
+          return () => clearTimeout(timer)
         }
       }
     }, [modalOpen])
@@ -2320,11 +2327,18 @@ export default function Home() {
       const modalKey = 'addOrder'
       if (modalOpen && subjectInputRef.current) {
         const shouldFocus = (modalFocusTracker.current.type !== modalKey || !modalFocusTracker.current.hasFocused) &&
-                           document.activeElement !== subjectInputRef.current
+                           document.activeElement !== subjectInputRef.current &&
+                           !subjectInputRef.current.matches(':focus')
         
         if (shouldFocus) {
-          subjectInputRef.current.focus()
-          modalFocusTracker.current = { type: modalKey, hasFocused: true }
+          // Use setTimeout to avoid interfering with user clicks
+          const timer = setTimeout(() => {
+            if (subjectInputRef.current && document.activeElement !== subjectInputRef.current) {
+              subjectInputRef.current.focus()
+              modalFocusTracker.current = { type: modalKey, hasFocused: true }
+            }
+          }, 50)
+          return () => clearTimeout(timer)
         }
       }
     }, [modalOpen])
@@ -2431,11 +2445,18 @@ export default function Home() {
       const modalKey = `addMedication-${patientId}`
       if (modalOpen && nameInputRef.current) {
         const shouldFocus = (modalFocusTracker.current.type !== modalKey || !modalFocusTracker.current.hasFocused) &&
-                           document.activeElement !== nameInputRef.current
+                           document.activeElement !== nameInputRef.current &&
+                           !nameInputRef.current.matches(':focus')
         
         if (shouldFocus) {
-          nameInputRef.current.focus()
-          modalFocusTracker.current = { type: modalKey, hasFocused: true }
+          // Use setTimeout to avoid interfering with user clicks
+          const timer = setTimeout(() => {
+            if (nameInputRef.current && document.activeElement !== nameInputRef.current) {
+              nameInputRef.current.focus()
+              modalFocusTracker.current = { type: modalKey, hasFocused: true }
+            }
+          }, 50)
+          return () => clearTimeout(timer)
         }
       }
     }, [modalOpen, patientId])
