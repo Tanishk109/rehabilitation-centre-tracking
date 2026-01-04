@@ -1,8 +1,0 @@
-[00:00:01.591] Server  LOG      ✓ Ready in 1350ms
-[15:57:56.939] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[15:57:57.043] Browser LOG     %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[15:57:57.043] Browser LOG     %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {"path":"/","route":"/"}
-[15:57:57.043] Browser LOG     %c[Vercel Web Analytics]%c [pageview] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {"dp":"/","o":"http://localhost:3000/","r":"","sdkn":"@vercel/analytics/next","sdkv":"1.6.1","sv":"0.1.3","ts":1765538139050}
-[15:58:29.636] Server  ERROR   Error: write EPIPE
-[15:58:29.640] Server  ERROR    ⨯ "uncaughtException:" Error: write EPIPE
-[15:58:29.643] Server  ERROR    ⨯ "uncaughtException: " Error: write EPIPE
